@@ -4,7 +4,7 @@ import asyncio
 import nest_asyncio
 import requests
 import config  # Import the config module
-from datetime import datetime
+from datetime import datetime, timezone
 
 interval = '1d'  # 1-day candlesticks
 
@@ -44,21 +44,21 @@ def send_3commas_message(symbol, action, close_price):
     # Check if the current message is the same as the previous one for this symbol
     if last_alert_messages.get(symbol) != action:
         # Prepare payload based on the action
-        timestamp = datetime.utcnow().isoformat() + 'Z'  # ISO 8601 format
+        timestamp = datetime.now(timezone.utc).isoformat()  # ISO 8601 format
         payload = {
-            "secret": config.SECRET,
+            "secret": config.SECRET,  # Ensure you have set this in your config module
             "max_lag": "300",
             "timestamp": timestamp,
             "trigger_price": str(close_price),
             "tv_exchange": "BINANCE",  # Ensure correct casing
-            "tv_instrument": symbol.replace('/', '') + '.P',  # Append '.P' if needed
+            "tv_instrument": symbol.replace('/', '') + '.P',  # Adjust format as needed
             "action": action,
-            "bot_uuid": "371cd3bb-1c25-4c9a-a437-78e59bc2aa9a"
+            "bot_uuid": "371cd3bb-1c25-4c9a-a437-78e59bc2aa9a"  # Ensure this is correct
         }
         # Print the payload for debugging
         print(f"Payload for {symbol} ({action}): {payload}")
 
-        url = config.THREE_COMMAS_WEBHOOK_URL
+        url = config.THREE_COMMAS_WEBHOOK_URL  # Ensure you have set this in your config module
         response = requests.post(url, json=payload)
         
         if response.status_code == 200:
@@ -71,7 +71,7 @@ def send_3commas_message(symbol, action, close_price):
 # Main function (now defined as async)
 async def main():
     while True:
-        for symbol in config.SELECTED_SYMBOLS:
+        for symbol in config.SELECTED_SYMBOLS:  # Ensure you have set this in your config module
             try:
                 historical_data = get_historical_data(symbol, interval)
                 cross_over, cross_under = check_vwma_cross(historical_data)
