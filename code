@@ -44,14 +44,14 @@ def send_3commas_message(symbol, action, close_price):
     # Check if the current message is the same as the previous one for this symbol
     if last_alert_messages.get(symbol) != action:
         # Prepare payload based on the action
-        timestamp = int(datetime.now().timestamp())
+        timestamp = datetime.utcnow().isoformat() + 'Z'  # ISO 8601 format
         payload = {
-            "secret": "eyJhbGciOiJIUzI1NiJ9.eyJzaWduYWxzX3NvdXJjZV9pZCI6MTAyNTR9.UpdSFm3FpcmR7hcVaBUOzPp5Q6-1gBRlQA21sH0ieHo",
+            "secret": config.SECRET,
             "max_lag": "300",
-            "timestamp": str(timestamp),
+            "timestamp": timestamp,
             "trigger_price": str(close_price),
-            "tv_exchange": "Binance",
-            "tv_instrument": symbol.replace('/', ''),
+            "tv_exchange": "BINANCE",  # Ensure correct casing
+            "tv_instrument": symbol.replace('/', '') + '.P',  # Append '.P' if needed
             "action": action,
             "bot_uuid": "371cd3bb-1c25-4c9a-a437-78e59bc2aa9a"
         }
