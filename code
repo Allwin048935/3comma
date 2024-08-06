@@ -53,7 +53,7 @@ def send_3commas_message(symbol, action, close_price):
             "tv_exchange": "BINANCE",  # Ensure correct casing
             "tv_instrument": symbol.replace('/', '') + '.P',  # Adjust format as needed
             "action": action,
-            "bot_uuid": "371cd3bb-1c25-4c9a-a437-78e59bc2aa9a"  # Ensure this is correct
+            "bot_uuid": "3054d7a6-d6ac-4e32-9abb-1f92ca1fa837"  # Ensure this is correct
         }
         # Print the payload for debugging
         print(f"Payload for {symbol} ({action}): {payload}")
