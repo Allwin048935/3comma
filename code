@@ -6,7 +6,7 @@ import requests
 import config  # Import the config module
 from datetime import datetime, timezone
 
-interval = '1m'  # 1-day candlesticks
+interval = '4h'  # 1-day candlesticks
 
 # Initialize Binance client
 binance = ccxt.binance({
@@ -30,7 +30,7 @@ def calculate_vwma(df, period):
     return (df['close'] * df['volume']).rolling(window=period).sum() / df['volume'].rolling(window=period).sum()
 
 # Function to check VWMA cross
-def check_vwma_cross(df, short_period=12, long_period=26):
+def check_vwma_cross(df, short_period=3, long_period=7):
     df['vwma_short'] = calculate_vwma(df, short_period)
     df['vwma_long'] = calculate_vwma(df, long_period)
 
