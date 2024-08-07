@@ -6,7 +6,7 @@ import requests
 import config  # Import the config module
 from datetime import datetime, timezone
 
-interval = '1h'  # 1-hour candlesticks
+interval = '15m'  # 1-hour candlesticks
 
 # Initialize Binance client
 binance = ccxt.binance({
@@ -27,7 +27,7 @@ def get_historical_data(symbol, interval, limit=100):
 
 # Function to get daily candlestick data and extract the open price
 def get_daily_open_price(symbol):
-    daily_ohlcv = binance.fetch_ohlcv(symbol, '1d', limit=2)
+    daily_ohlcv = binance.fetch_ohlcv(symbol, '1d', limit=5)
     df_daily = pd.DataFrame(daily_ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
     df_daily['timestamp'] = pd.to_datetime(df_daily['timestamp'], unit='ms')
     df_daily.set_index('timestamp', inplace=True)
@@ -40,7 +40,7 @@ def calculate_sma(df, period):
     return df['close'].rolling(window=period).mean()
 
 # Function to check SMA against daily open price
-def check_sma_vs_daily_open(df, short_period=3):
+def check_sma_vs_daily_open(df, short_period=2):
     df['sma_short'] = calculate_sma(df, short_period)
     # Return the latest SMA short value
     latest_sma_short = df['sma_short'].iloc[-1]
