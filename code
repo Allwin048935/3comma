@@ -56,7 +56,7 @@ def send_3commas_message(symbol, action, close_price):
             "bot_uuid": "3054d7a6-d6ac-4e32-9abb-1f92ca1fa837"  # Ensure this is correct
         }
         # Print the payload for debugging
-        print(f"Payload for {symbol} ({action}): {payload}")
+        #print(f"Payload for {symbol} ({action}): {payload}")
 
         url = config.THREE_COMMAS_WEBHOOK_URL  # Ensure you have set this in your config module
         response = requests.post(url, json=payload)
