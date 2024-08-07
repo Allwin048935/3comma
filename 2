@@ -98,9 +98,9 @@ async def main():
 
                 # Determine the action based on SMA crossover compared to daily open price
                 if cross_over:
-                    send_3commas_message(symbol, "enter_long", close_price)
+                    send_3commas_message(symbol, "exit_long", close_price)
                 elif cross_under:
-                    send_3commas_message(symbol, "enter_short", close_price)
+                    send_3commas_message(symbol, "exit_short", close_price)
 
             except Exception as e:
                 print(f"Error processing {symbol}: {e}")
