@@ -43,11 +43,11 @@ def calculate_sma(df, period):
 def check_sma_crossover_vs_daily_open(df, daily_open_price, short_period=7):
     df['sma_short'] = calculate_sma(df, short_period)
     cross_over_conditions = [
-        df['sma_short'].iloc[-3] < daily_open_price * (1 + percentage) and df['sma_short'].iloc[-2] > daily_open_price * (1 + percentage)
+        df['sma_short'].iloc[-3] > daily_open_price * (1 + percentage) and df['sma_short'].iloc[-2] < daily_open_price * (1 + percentage)
         for percentage in [0.01, 0.02, 0.03, 0.04, 0.05]
     ]
     cross_under_conditions = [
-        df['sma_short'].iloc[-3] > daily_open_price * (1 - percentage) and df['sma_short'].iloc[-2] < daily_open_price * (1 - percentage)
+        df['sma_short'].iloc[-3] < daily_open_price * (1 - percentage) and df['sma_short'].iloc[-2] > daily_open_price * (1 - percentage)
         for percentage in [0.01, 0.02, 0.03, 0.04, 0.05]
     ]
     cross_over = any(cross_over_conditions)
@@ -106,7 +106,7 @@ async def main():
                 print(f"Error processing {symbol}: {e}")
 
         # Sleep for a specified interval before checking again
-        await asyncio.sleep(180)  # 3 minutes
+        await asyncio.sleep(60)  # 3 minutes
 
 # Use nest_asyncio to allow running asyncio in Jupyter notebooks
 nest_asyncio.apply()
