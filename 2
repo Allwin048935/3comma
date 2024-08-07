@@ -40,7 +40,7 @@ def calculate_sma(df, period):
     return df['close'].rolling(window=period).mean()
 
 # Function to check SMA crossover against daily open price with percentage adjustments
-def check_sma_crossover_vs_daily_open(df, daily_open_price, short_period=7):
+def check_sma_crossover_vs_daily_open(df, daily_open_price, short_period=2):
     df['sma_short'] = calculate_sma(df, short_period)
     cross_over_conditions = [
         df['sma_short'].iloc[-3] > daily_open_price * (1 + percentage) and df['sma_short'].iloc[-2] < daily_open_price * (1 + percentage)
