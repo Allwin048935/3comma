@@ -6,7 +6,7 @@ import requests
 import config  # Import the config module
 from datetime import datetime, timezone
 
-interval = '3m'  # 3-minute candlesticks
+interval = '1m'  # 3-minute candlesticks
 
 # Initialize Binance client
 binance = ccxt.binance({
@@ -40,7 +40,7 @@ def calculate_sma(df, period):
     return df['close'].rolling(window=period).mean()
 
 # Function to check SMA crossover against daily open price
-def check_sma_crossover_vs_daily_open(df, daily_open_price, short_period=7):
+def check_sma_crossover_vs_daily_open(df, daily_open_price, short_period=2):
     df['sma_short'] = calculate_sma(df, short_period)
     cross_over = df['sma_short'].iloc[-3] < daily_open_price and df['sma_short'].iloc[-2] > daily_open_price
     cross_under = df['sma_short'].iloc[-3] > daily_open_price and df['sma_short'].iloc[-2] < daily_open_price
