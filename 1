@@ -6,7 +6,7 @@ import requests
 import config  # Import the config module
 from datetime import datetime, timezone
 
-interval = '3m'  # 1-hour candlesticks
+interval = '3m'  # 3-minute candlesticks
 
 # Initialize Binance client
 binance = ccxt.binance({
@@ -27,7 +27,7 @@ def get_historical_data(symbol, interval, limit=100):
 
 # Function to get daily candlestick data and extract the open price
 def get_daily_open_price(symbol):
-    daily_ohlcv = binance.fetch_ohlcv(symbol, '1d', limit=5)
+    daily_ohlcv = binance.fetch_ohlcv(symbol, '1d', limit=2)
     df_daily = pd.DataFrame(daily_ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
     df_daily['timestamp'] = pd.to_datetime(df_daily['timestamp'], unit='ms')
     df_daily.set_index('timestamp', inplace=True)
@@ -39,12 +39,12 @@ def get_daily_open_price(symbol):
 def calculate_sma(df, period):
     return df['close'].rolling(window=period).mean()
 
-# Function to check SMA against daily open price
-def check_sma_vs_daily_open(df, short_period=9):
+# Function to check SMA crossover against daily open price
+def check_sma_crossover_vs_daily_open(df, daily_open_price, short_period=9):
     df['sma_short'] = calculate_sma(df, short_period)
-    # Return the latest SMA short value
-    latest_sma_short = df['sma_short'].iloc[-1]
-    return latest_sma_short
+    cross_over = df['sma_short'].iloc[-3] < daily_open_price and df['sma_short'].iloc[-2] > daily_open_price
+    cross_under = df['sma_short'].iloc[-3] > daily_open_price and df['sma_short'].iloc[-2] < daily_open_price
+    return cross_over, cross_under
 
 # Function to send a message to 3commas using a webhook
 def send_3commas_message(symbol, action, close_price):
@@ -83,21 +83,21 @@ async def main():
                 # Fetch historical data and daily open price only once per symbol
                 historical_data = get_historical_data(symbol, interval)
                 daily_open_price = get_daily_open_price(symbol)  # Get the daily open price
-                latest_sma_short = check_sma_vs_daily_open(historical_data)
+                cross_over, cross_under = check_sma_crossover_vs_daily_open(historical_data, daily_open_price)
 
                 close_price = historical_data['close'].iloc[-1]
 
-                # Determine the action based on SMA compared to daily open price
-                if latest_sma_short > daily_open_price:
+                # Determine the action based on SMA crossover compared to daily open price
+                if cross_over:
                     send_3commas_message(symbol, "enter_long", close_price)
-                elif latest_sma_short < daily_open_price:
+                elif cross_under:
                     send_3commas_message(symbol, "enter_short", close_price)
 
             except Exception as e:
                 print(f"Error processing {symbol}: {e}")
 
         # Sleep for a specified interval before checking again
-        await asyncio.sleep(180)  # 5 minutes
+        await asyncio.sleep(180)  # 3 minutes
 
 # Use nest_asyncio to allow running asyncio in Jupyter notebooks
 nest_asyncio.apply()
