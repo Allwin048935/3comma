@@ -6,7 +6,7 @@ import requests
 import config  # Import the config module
 from datetime import datetime, timezone
 
-interval = '15m'  # 1-hour candlesticks
+interval = '3m'  # 1-hour candlesticks
 
 # Initialize Binance client
 binance = ccxt.binance({
@@ -40,7 +40,7 @@ def calculate_sma(df, period):
     return df['close'].rolling(window=period).mean()
 
 # Function to check SMA against daily open price
-def check_sma_vs_daily_open(df, short_period=2):
+def check_sma_vs_daily_open(df, short_period=9):
     df['sma_short'] = calculate_sma(df, short_period)
     # Return the latest SMA short value
     latest_sma_short = df['sma_short'].iloc[-1]
@@ -97,7 +97,7 @@ async def main():
                 print(f"Error processing {symbol}: {e}")
 
         # Sleep for a specified interval before checking again
-        await asyncio.sleep(300)  # 5 minutes
+        await asyncio.sleep(180)  # 5 minutes
 
 # Use nest_asyncio to allow running asyncio in Jupyter notebooks
 nest_asyncio.apply()
