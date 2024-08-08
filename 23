@@ -1,3 +1,5 @@
+
+
 import ccxt
 import pandas as pd
 import asyncio
@@ -56,32 +58,30 @@ def check_sma_crossover_vs_daily_open(df, daily_open_price, short_period=2):
 
 # Function to send a message to 3commas using a webhook
 def send_3commas_message(symbol, action, close_price):
-    # Check if the current message is the same as the previous one for this symbol
-    if last_alert_messages.get(symbol) != action:
-        # Prepare payload based on the action
-        timestamp = datetime.now(timezone.utc).isoformat()  # ISO 8601 format
-        payload = {
-            "secret": config3.SECRET,  # Ensure you have set this in your config3 module
-            "max_lag": "300",
-            "timestamp": timestamp,
-            "trigger_price": str(close_price),
-            "tv_exchange": "BINANCE",  # Ensure correct casing
-            "tv_instrument": symbol.replace('/', '') + '.P',  # Adjust format as needed
-            "action": action,
-            "bot_uuid": "3054d7a6-d6ac-4e32-9abb-1f92ca1fa837"  # Ensure this is correct
-        }
-        # Print the payload for debugging
-        #print(f"Payload for {symbol} ({action}): {payload}")
+    # Prepare payload based on the action
+    timestamp = datetime.now(timezone.utc).isoformat()  # ISO 8601 format
+    payload = {
+        "secret": config3.SECRET,  # Ensure you have set this in your config3 module
+        "max_lag": "300",
+        "timestamp": timestamp,
+        "trigger_price": str(close_price),
+        "tv_exchange": "BINANCE",  # Ensure correct casing
+        "tv_instrument": symbol.replace('/', '') + '.P',  # Adjust format as needed
+        "action": action,
+        "bot_uuid": "3054d7a6-d6ac-4e32-9abb-1f92ca1fa837"  # Ensure this is correct
+    }
+    # Print the payload for debugging
+    #print(f"Payload for {symbol} ({action}): {payload}")
 
-        url = config3.THREE_COMMAS_WEBHOOK_URL  # Ensure you have set this in your config3 module
-        response = requests.post(url, json=payload)
-        
-        if response.status_code == 200:
-            print(f"Successfully sent alert for {symbol} with action {action}")
-            # Update the last alert message for this symbol
-            last_alert_messages[symbol] = action
-        else:
-            print(f"Failed to send alert for {symbol}: {response.content}")
+    url = config3.THREE_COMMAS_WEBHOOK_URL  # Ensure you have set this in your config3 module
+    response = requests.post(url, json=payload)
+    
+    if response.status_code == 200:
+        print(f"Successfully sent alert for {symbol} with action {action}")
+        # Update the last alert message for this symbol
+        last_alert_messages[symbol] = action
+    else:
+        print(f"Failed to send alert for {symbol}: {response.content}")
 
 # Main function (now defined as async)
 async def main():
