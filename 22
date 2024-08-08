@@ -44,11 +44,11 @@ def check_sma_crossover_vs_daily_open(df, daily_open_price, short_period=2):
     df['sma_short'] = calculate_sma(df, short_period)
     cross_over_conditions = [
         df['sma_short'].iloc[-3] > daily_open_price * (1 + percentage) and df['sma_short'].iloc[-2] < daily_open_price * (1 + percentage)
-        for percentage in [0.01, 0.02, 0.03, 0.04, 0.05]
+        for percentage in [0.005, 0.01, 0.02, 0.03, 0.04, 0.05]
     ]
     cross_under_conditions = [
         df['sma_short'].iloc[-3] < daily_open_price * (1 - percentage) and df['sma_short'].iloc[-2] > daily_open_price * (1 - percentage)
-        for percentage in [0.01, 0.02, 0.03, 0.04, 0.05]
+        for percentage in [0.005, 0.01, 0.02, 0.03, 0.04, 0.05]
     ]
     cross_over = any(cross_over_conditions)
     cross_under = any(cross_under_conditions)
