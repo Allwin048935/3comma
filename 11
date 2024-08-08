@@ -49,7 +49,7 @@ def check_sma_crossover_vs_daily_open(df, daily_open_price, short_period=2):
 # Function to send a message to 3commas using a webhook
 def send_3commas_message(symbol, action, close_price):
     # Check if the current message is the same as the previous one for this symbol
-    if last_alert_messages.get(symbol) != action:
+    # if last_alert_messages.get(symbol) != action:
         # Prepare payload based on the action
         timestamp = datetime.now(timezone.utc).isoformat()  # ISO 8601 format
         payload = {
