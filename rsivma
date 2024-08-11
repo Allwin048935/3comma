@@ -94,7 +94,7 @@ async def main():
                 last_rsi_21 = rsi_21.iloc[-2]
 
                 # Define your conditions for sending alerts based on RSI and VWMA
-                if cross_over and last_rsi_6 >=  last_rsi_21:
+                if cross_over and last_rsi_6 >= last_rsi_21:
                     send_3commas_message(symbol, "enter_long", close_price)
                 elif cross_under and last_rsi_6 <= last_rsi_21:
                     send_3commas_message(symbol, "enter_short", close_price)
