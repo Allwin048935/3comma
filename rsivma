@@ -7,7 +7,7 @@ import config  # Import the config module
 from datetime import datetime, timezone
 import ta  # Import the ta library
 
-interval = '1h'  # 1-hour candlesticks
+interval = '1m'  # 1-hour candlesticks
 
 # Initialize Binance client
 binance = ccxt.binance({
@@ -19,7 +19,7 @@ binance = ccxt.binance({
 last_alert_messages = {}
 
 # Function to get historical candlestick data
-def get_historical_data(symbol, interval, limit=100):
+def get_historical_data(symbol, interval, limit=500):
     ohlcv = binance.fetch_ohlcv(symbol, interval, limit=limit)
     df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
     df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
@@ -32,7 +32,7 @@ def calculate_ema(df, period):
     return ema.ema_indicator()
 
 # Function to check EMA cross
-def check_ema_cross(df, short_period=3, long_period=7):
+def check_ema_cross(df, short_period=3, long_period=200):
     df['ema_short'] = calculate_ema(df, short_period)
     df['ema_long'] = calculate_ema(df, long_period)
 
@@ -97,15 +97,15 @@ async def main():
                 # print(f"EMA 50 (Last): {last_ema_50}")
 
                 # Define your conditions for sending alerts based on RSI and EMA
-                if cross_over and last_rsi_6 >= last_rsi_21:
+                if cross_over:
                     send_3commas_message(symbol, "enter_long", close_price)
-                elif cross_under and last_rsi_6 <= last_rsi_21:
+                elif cross_under:
                     send_3commas_message(symbol, "enter_short", close_price)
 
             except Exception as e:
                 print(f"Error processing {symbol}: {e}")
 
-        await asyncio.sleep(300)  # 5 minutes
+        await asyncio.sleep(60)  # 5 minutes
 
 # Use nest_asyncio to allow running asyncio in Jupyter notebooks
 nest_asyncio.apply()
