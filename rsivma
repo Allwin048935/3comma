@@ -73,10 +73,10 @@ def send_3commas_message(symbol, action, close_price):
         response = requests.post(url, json=payload)
         
         if response.status_code == 200:
-            print(f"Successfully sent alert for {symbol} with action {action}")
+            # print(f"Successfully sent alert for {symbol} with action {action}")
             last_alert_messages[symbol] = action
         else:
-            print(f"Failed to send alert for {symbol}: {response.content}")
+            #print(f"Failed to send alert for {symbol}: {response.content}")
 
 # Main function (now defined as async)
 async def main():
@@ -100,9 +100,9 @@ async def main():
                 last_ema_50 = ema_50.iloc[-2]
 
                 # Print RSI and EMA values
-                print(f"RSI 6 (Last): {last_rsi_6}")
-                print(f"RSI 21 (Last): {last_rsi_21}")
-                print(f"EMA 50 (Last): {last_ema_50}")
+                # print(f"RSI 6 (Last): {last_rsi_6}")
+                # print(f"RSI 21 (Last): {last_rsi_21}")
+                # print(f"EMA 50 (Last): {last_ema_50}")
 
                 # Define your conditions for sending alerts based on RSI, EMA, and VWMA
                 if cross_over and last_rsi_6 >= last_rsi_21:
