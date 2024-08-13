@@ -27,7 +27,7 @@ binance = ccxt.binance({
 last_alert_messages = {}
 
 # Function to get historical candlestick data
-async def get_historical_data(symbol, interval, limit=500):
+async def get_historical_data(symbol, interval, limit=600):
     loop = asyncio.get_event_loop()
     ohlcv = await loop.run_in_executor(executor, binance.fetch_ohlcv, symbol, interval, limit)
     df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
