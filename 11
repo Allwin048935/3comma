@@ -3,8 +3,9 @@ import pandas as pd
 import asyncio
 import nest_asyncio
 import requests
-import config1  # Import the config1 module
+import config1  # Change to import the config1 module
 from datetime import datetime, timezone
+import ta  # Import the ta library
 
 interval = '1m'  # 1-minute candlesticks
 
@@ -18,52 +19,53 @@ binance = ccxt.binance({
 last_alert_messages = {}
 
 # Function to get historical candlestick data
-def get_historical_data(symbol, interval, limit=300):
+def get_historical_data(symbol, interval, limit=500):
     ohlcv = binance.fetch_ohlcv(symbol, interval, limit=limit)
     df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
     df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
     df.set_index('timestamp', inplace=True)
     return df
 
-# Function to calculate VWMA
-def calculate_vwma(df, period):
-    return (df['close'] * df['volume']).rolling(window=period).sum() / df['volume'].rolling(window=period).sum()
+# Function to calculate EMA
+def calculate_ema(df, period):
+    ema = ta.trend.EMAIndicator(df['close'], window=period)
+    return ema.ema_indicator()
 
-# Function to check VWMA cross
-def check_vwma_cross(df, short_period=7, long_period=200):
-    df['vwma_short'] = calculate_vwma(df, short_period)
-    df['vwma_long'] = calculate_vwma(df, long_period)
+# Function to check EMA cross
+def check_ema_cross(df, short_period=3, long_period=200):
+    df['ema_short'] = calculate_ema(df, short_period)
+    df['ema_long'] = calculate_ema(df, long_period)
 
-    cross_over = df['vwma_short'].iloc[-2] >= df['vwma_long'].iloc[-2]
-    cross_under = df['vwma_short'].iloc[-2] <= df['vwma_long'].iloc[-2]
+    cross_over = df['ema_short'].iloc[-2] >= df['ema_long'].iloc[-2] and df['ema_short'].iloc[-3] <= df['ema_long'].iloc[-3]
+    cross_under = df['ema_short'].iloc[-2] <= df['ema_long'].iloc[-2] and df['ema_short'].iloc[-3] >= df['ema_long'].iloc[-3]
 
     return cross_over, cross_under
 
+# Function to calculate RSI using ta library
+def calculate_rsi(df, period):
+    rsi = ta.momentum.RSIIndicator(df['close'], window=period)
+    return rsi.rsi()
+
 # Function to send a message to 3commas using a webhook
 def send_3commas_message(symbol, action, close_price):
-    # Check if the current message is the same as the previous one for this symbol
     if last_alert_messages.get(symbol) != action:
-        # Prepare payload based on the action
-        timestamp = datetime.now(timezone.utc).isoformat()  # ISO 8601 format
+        timestamp = datetime.now(timezone.utc).isoformat()
         payload = {
-            "secret": config1.SECRET,  # Ensure you have set this in your config1 module
+            "secret": config1.SECRET,  # Change to config1
             "max_lag": "300",
             "timestamp": timestamp,
             "trigger_price": str(close_price),
-            "tv_exchange": "BINANCE",  # Ensure correct casing
-            "tv_instrument": symbol.replace('/', '') + '.P',  # Adjust format as needed
+            "tv_exchange": "BINANCE",
+            "tv_instrument": symbol.replace('/', '') + '.P',
             "action": action,
-            "bot_uuid": "3054d7a6-d6ac-4e32-9abb-1f92ca1fa837"  # Ensure this is correct
+            "bot_uuid": "3054d7a6-d6ac-4e32-9abb-1f92ca1fa837"  # Consider changing this to a configurable option as mentioned earlier
         }
-        # Print the payload for debugging
-        #print(f"Payload for {symbol} ({action}): {payload}")
 
-        url = config1.THREE_COMMAS_WEBHOOK_URL  # Ensure you have set this in your config1 module
+        url = config1.THREE_COMMAS_WEBHOOK_URL  # Change to config1
         response = requests.post(url, json=payload)
         
         if response.status_code == 200:
             print(f"Successfully sent alert for {symbol} with action {action}")
-            # Update the last alert message for this symbol
             last_alert_messages[symbol] = action
         else:
             print(f"Failed to send alert for {symbol}: {response.content}")
@@ -71,22 +73,29 @@ def send_3commas_message(symbol, action, close_price):
 # Main function (now defined as async)
 async def main():
     while True:
-        for symbol in config1.SELECTED_SYMBOLS:  # Ensure you have set this in your config1 module
-            try:
-                historical_data = get_historical_data(symbol, interval)
-                cross_over, cross_under = check_vwma_cross(historical_data)
+        try:
+            historical_data_list = await asyncio.gather(*[get_historical_data(symbol, interval) for symbol in config1.SELECTED_SYMBOLS])  # Change to config1
+            
+            for historical_data, symbol in zip(historical_data_list, config1.SELECTED_SYMBOLS):  # Change to config1
+                cross_over, cross_under = check_ema_cross(historical_data)
                 close_price = historical_data['close'].iloc[-1]
 
+                rsi_6 = calculate_rsi(historical_data, 6)
+                rsi_21 = calculate_rsi(historical_data, 21)
+
+                last_rsi_6 = rsi_6.iloc[-2]
+                last_rsi_21 = rsi_21.iloc[-2]
+
+                # Define your conditions for sending alerts based on RSI and EMA
                 if cross_over:
                     send_3commas_message(symbol, "enter_long", close_price)
                 elif cross_under:
                     send_3commas_message(symbol, "enter_short", close_price)
 
-            except Exception as e:
-                print(f"Error processing {symbol}: {e}")
+        except Exception as e:
+            print(f"Error in main loop: {e}")
 
-        # Sleep for a specified interval before checking again
-        await asyncio.sleep(60)  # 1 minute
+        await asyncio.sleep(60)  # Adjust as necessary
 
 # Use nest_asyncio to allow running asyncio in Jupyter notebooks
 nest_asyncio.apply()
