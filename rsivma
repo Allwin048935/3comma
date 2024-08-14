@@ -26,18 +26,18 @@ def get_historical_data(symbol, interval, limit=200):
     df.set_index('timestamp', inplace=True)
     return df
 
-# Function to calculate SMA
-def calculate_sma(df, period):
-    sma = ta.trend.SMAIndicator(df['close'], window=period)
-    return sma.sma_indicator()
+# Function to calculate EMA
+def calculate_ema(df, period):
+    ema = ta.trend.EMAIndicator(df['close'], window=period)
+    return ema.ema_indicator()
 
-# Function to check SMA cross
-def check_sma_cross(df, short_period=3, long_period=300):
-    df['sma_short'] = calculate_sma(df, short_period)
-    df['sma_long'] = calculate_sma(df, long_period)
+# Function to check EMA cross
+def check_ema_cross(df, short_period=3, long_period=500):
+    df['ema_short'] = calculate_ema(df, short_period)
+    df['ema_long'] = calculate_ema(df, long_period)
 
-    cross_over = df['sma_short'].iloc[-2] >= df['sma_long'].iloc[-2] and df['sma_short'].iloc[-3] <= df['sma_long'].iloc[-3]
-    cross_under = df['sma_short'].iloc[-2] <= df['sma_long'].iloc[-2] and df['sma_short'].iloc[-3] >= df['sma_long'].iloc[-3]
+    cross_over = df['ema_short'].iloc[-2] >= df['ema_long'].iloc[-2] and df['ema_short'].iloc[-3] <= df['ema_long'].iloc[-3]
+    cross_under = df['ema_short'].iloc[-2] <= df['ema_long'].iloc[-2] and df['ema_short'].iloc[-3] >= df['ema_long'].iloc[-3]
 
     return cross_over, cross_under
 
@@ -76,7 +76,7 @@ async def main():
         for symbol in config.SELECTED_SYMBOLS:
             try:
                 historical_data = get_historical_data(symbol, interval)
-                cross_over, cross_under = check_sma_cross(historical_data)
+                cross_over, cross_under = check_ema_cross(historical_data)
                 close_price = historical_data['close'].iloc[-1]
 
                 # Calculate RSI for 6 and 21 periods using ta library
@@ -87,16 +87,16 @@ async def main():
                 last_rsi_6 = rsi_6.iloc[-2]
                 last_rsi_21 = rsi_21.iloc[-2]
 
-                # Calculate SMA for 50 periods as an example
-                sma_50 = calculate_sma(historical_data, 50)
-                last_sma_50 = sma_50.iloc[-2]
+                # Calculate EMA for 50 periods as an example
+                ema_50 = calculate_ema(historical_data, 50)
+                last_ema_50 = ema_50.iloc[-2]
 
-                # Print RSI and SMA values
+                # Print RSI and EMA values
                 # print(f"RSI 6 (Last): {last_rsi_6}")
                 # print(f"RSI 21 (Last): {last_rsi_21}")
-                # print(f"SMA 50 (Last): {last_sma_50}")
+                # print(f"EMA 50 (Last): {last_ema_50}")
 
-                # Define your conditions for sending alerts based on RSI and SMA
+                # Define your conditions for sending alerts based on RSI and EMA
                 if cross_over:
                     send_3commas_message(symbol, "enter_long", close_price)
                 elif cross_under:
