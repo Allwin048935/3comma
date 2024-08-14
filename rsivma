@@ -3,8 +3,9 @@ import pandas as pd
 import asyncio
 import nest_asyncio
 import requests
-import config  # Import the config module
+import config
 from datetime import datetime, timezone
+import ta  # Import the ta library
 
 interval = '1m'  # 1-minute candlesticks
 
@@ -25,13 +26,13 @@ def get_historical_data(symbol, interval, limit=600):
     df.set_index('timestamp', inplace=True)
     return df
 
-# Function to calculate EMA manually
+# Function to calculate EMA using the ta library
 def calculate_ema(df, period):
-    ema = df['close'].ewm(span=period, adjust=False).mean()
-    return ema
+    df['ema'] = ta.trend.ema_indicator(close=df['close'], window=period)
+    return df['ema']
 
 # Function to check EMA cross
-def check_ema_cross(df, short_period=3, long_period=500):
+def check_ema_cross(df, short_period=3, long_period=200):
     df['ema_short'] = calculate_ema(df, short_period)
     df['ema_long'] = calculate_ema(df, long_period)
 
