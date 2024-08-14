@@ -5,9 +5,8 @@ import nest_asyncio
 import requests
 import config  # Import the config module
 from datetime import datetime, timezone
-import ta  # Import the ta library
 
-interval = '1m'  # 1-hour candlesticks
+interval = '1m'  # 1-minute candlesticks
 
 # Initialize Binance client
 binance = ccxt.binance({
@@ -26,10 +25,10 @@ def get_historical_data(symbol, interval, limit=600):
     df.set_index('timestamp', inplace=True)
     return df
 
-# Function to calculate EMA
+# Function to calculate EMA manually
 def calculate_ema(df, period):
-    ema = ta.trend.EMAIndicator(df['close'], window=period)
-    return ema.ema_indicator()
+    ema = df['close'].ewm(span=period, adjust=False).mean()
+    return ema
 
 # Function to check EMA cross
 def check_ema_cross(df, short_period=3, long_period=500):
@@ -90,11 +89,6 @@ async def main():
                 # Calculate EMA for 50 periods as an example
                 ema_50 = calculate_ema(historical_data, 50)
                 last_ema_50 = ema_50.iloc[-2]
-
-                # Print RSI and EMA values
-                # print(f"RSI 6 (Last): {last_rsi_6}")
-                # print(f"RSI 21 (Last): {last_rsi_21}")
-                # print(f"EMA 50 (Last): {last_ema_50}")
 
                 # Define your conditions for sending alerts based on RSI and EMA
                 if cross_over:
