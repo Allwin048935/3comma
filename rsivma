@@ -40,11 +40,6 @@ def check_ema_cross(df, short_period=3, long_period=500):
 
     return cross_over, cross_under
 
-# Function to calculate RSI using ta library
-def calculate_rsi(df, period):
-    rsi = ta.momentum.RSIIndicator(df['close'], window=period)
-    return rsi.rsi()
-
 # Function to send a message to 3commas using a webhook
 def send_3commas_message(symbol, action, close_price):
     if last_alert_messages.get(symbol) != action:
@@ -78,19 +73,11 @@ async def main():
                 cross_over, cross_under = check_ema_cross(historical_data)
                 close_price = historical_data['close'].iloc[-1]
 
-                # Calculate RSI for 6 and 21 periods using ta library
-                rsi_6 = calculate_rsi(historical_data, 6)
-                rsi_21 = calculate_rsi(historical_data, 21)
-
-                # Get the last RSI values
-                last_rsi_6 = rsi_6.iloc[-2]
-                last_rsi_21 = rsi_21.iloc[-2]
-
                 # Calculate EMA for 50 periods as an example
                 ema_50 = calculate_ema(historical_data, 50)
                 last_ema_50 = ema_50.iloc[-2]
 
-                # Define your conditions for sending alerts based on RSI and EMA
+                # Define your conditions for sending alerts based on EMA
                 if cross_over:
                     send_3commas_message(symbol, "enter_long", close_price)
                 elif cross_under:
