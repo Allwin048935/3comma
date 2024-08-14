@@ -7,7 +7,7 @@ import config
 from datetime import datetime, timezone
 import ta  # Import the ta library
 
-interval = '1m'  # 1-minute candlesticks
+interval = '3m'  # 1-minute candlesticks
 
 # Initialize Binance client
 binance = ccxt.binance({
@@ -87,7 +87,7 @@ async def main():
             except Exception as e:
                 print(f"Error processing {symbol}: {e}")
 
-        await asyncio.sleep(60)  # 5 minutes
+        await asyncio.sleep(180)  # 5 minutes
 
 # Use nest_asyncio to allow running asyncio in Jupyter notebooks
 nest_asyncio.apply()
