@@ -101,6 +101,15 @@ async def main():
                 cross_over, cross_under = check_ema_cross(historical_data)
                 close_price = historical_data['close'].iloc[-1]
 
+                # Calculate the EMA values for debugging/printing
+                ema_short = calculate_ema(historical_data, short_period=5)
+                ema_long = calculate_ema(historical_data, long_period=10)
+
+                # Print the EMA values for the last two candles with the symbol name
+                print(f"Symbol: {symbol}")
+                print(f"EMA Short [-1]: {ema_short.iloc[-1]}, EMA Short [-2]: {ema_short.iloc[-2]}")
+                print(f"EMA Long [-1]: {ema_long.iloc[-1]}, EMA Long [-2]: {ema_long.iloc[-2]}\n")
+
                 # Calculate RSI for 6 and 21 periods using ta library
                 rsi_6 = calculate_rsi(historical_data, 6)
                 rsi_21 = calculate_rsi(historical_data, 21)
