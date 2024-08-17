@@ -103,8 +103,9 @@ async def main():
                 cross_over, cross_under, ema_short, ema_long = check_ema_cross(historical_data)
                 close_price = historical_data['close'].iloc[-1]
 
-                # Print the EMA values for the last two candles with the symbol name
+                # Print the raw data and EMA values for the last two candles with the symbol name
                 print(f"Symbol: {symbol}")
+                print(f"Raw Close Prices:\n{historical_data['close'].tail(10)}\n")
                 print(f"EMA Short [-1]: {ema_short.iloc[-1]}, EMA Short [-2]: {ema_short.iloc[-2]}")
                 print(f"EMA Long [-1]: {ema_long.iloc[-1]}, EMA Long [-2]: {ema_long.iloc[-2]}\n")
 
