@@ -7,7 +7,7 @@ import config  # Import the config module
 import ta  # Import the ta library
 from datetime import datetime, timezone
 
-interval = '2h'  # 2-hour candlesticks
+interval = '1d'  # 2-hour candlesticks
 short_period = 5  # Short EMA period
 long_period = 10  # Long EMA period
 
