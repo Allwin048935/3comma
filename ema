@@ -49,9 +49,9 @@ def print_latest_ema_values(df, symbol, short_period, long_period):
     latest_short_ema = df['ema_short'].iloc[-1]
     latest_long_ema = df['ema_long'].iloc[-1]
     
-    print(f"Symbol: {symbol}")
-    print(f"Latest Short EMA ({short_period} periods): {latest_short_ema}")
-    print(f"Latest Long EMA ({long_period} periods): {latest_long_ema}")
+    # print(f"Symbol: {symbol}")
+    # print(f"Latest Short EMA ({short_period} periods): {latest_short_ema}")
+    # print(f"Latest Long EMA ({long_period} periods): {latest_long_ema}")
 
 # Function to send a message to 3commas using a webhook
 def send_3commas_message(symbol, action, close_price):
@@ -105,7 +105,7 @@ async def main():
                 print(f"Error processing {symbol}: {e}")
 
         # Sleep for a specified interval before checking again
-        await asyncio.sleep(60)  # 1 minute
+        await asyncio.sleep(3600)  # 1 minute
 
 # Use nest_asyncio to allow running asyncio in Jupyter notebooks
 nest_asyncio.apply()
