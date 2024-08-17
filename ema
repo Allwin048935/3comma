@@ -4,7 +4,7 @@ import asyncio
 import nest_asyncio
 import requests
 import config1  # Use the updated config1 module
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 import ta  # Import the ta library
 import logging
 from concurrent.futures import ThreadPoolExecutor
@@ -33,28 +33,29 @@ async def get_historical_data(symbol, interval, limit=50):
     df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
     df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
     df.set_index('timestamp', inplace=True)
-    df = df.sort_index()  # Ensure data is sorted by timestamp
     return df
 
-# Function to calculate EMA using ta library
+# Function to calculate EMA
 def calculate_ema(df, period):
-    ema_indicator = ta.trend.EMAIndicator(df['close'], window=period)
-    return ema_indicator.ema_indicator()
+    ema = ta.trend.EMAIndicator(df['close'], window=period)
+    return ema.ema_indicator()
 
 # Function to check EMA cross
 def check_ema_cross(df, short_period=5, long_period=10):
     if len(df) < long_period:  # Ensure enough data points
-        return False, False, None, None
+        return False, False
 
-    # Calculate short and long EMAs
     df['ema_short'] = calculate_ema(df, short_period)
     df['ema_long'] = calculate_ema(df, long_period)
 
-    # Check for crossovers
-    cross_over = df['ema_short'].iloc[-1] >= df['ema_long'].iloc[-1] and df['ema_short'].iloc[-2] <= df['ema_long'].iloc[-2]
-    cross_under = df['ema_short'].iloc[-1] <= df['ema_long'].iloc[-1] and df['ema_short'].iloc[-2] >= df['ema_long'].iloc[-2]
+    # Print EMA values
+    logging.info(f"EMA Short ({short_period}): {df['ema_short'].iloc[-1]}")
+    logging.info(f"EMA Long ({long_period}): {df['ema_long'].iloc[-1]}")
 
-    return cross_over, cross_under, df['ema_short'], df['ema_long']
+    cross_over = df['ema_short'].iloc[-1] > df['ema_long'].iloc[-1] and df['ema_short'].iloc[-2] < df['ema_long'].iloc[-2]
+    cross_under = df['ema_short'].iloc[-1] < df['ema_long'].iloc[-1] and df['ema_short'].iloc[-2] > df['ema_long'].iloc[-2]
+
+    return cross_over, cross_under
 
 # Function to calculate RSI using ta library
 def calculate_rsi(df, period):
@@ -85,12 +86,6 @@ def send_3commas_message(symbol, action, close_price):
         else:
             logging.error(f"Failed to send alert for {symbol}: {response.content}")
 
-# Function to calculate the time to wait until the next full hour
-def time_until_next_hour():
-    now = datetime.now(timezone.utc)
-    next_hour = (now + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
-    return (next_hour - now).total_seconds()
-
 # Main function (now defined as async)
 async def main():
     while True:
@@ -101,19 +96,8 @@ async def main():
             )
             
             for historical_data, symbol in zip(historical_data_list, config1.SELECTED_SYMBOLS):
-                # Get the latest timestamp and its corresponding values
-                latest_timestamp = historical_data.index[-1]
-                latest_data = historical_data.loc[latest_timestamp]
-                
-                print(f"Symbol: {symbol}")
-                print(f"Latest Data Sample:\n{latest_data}\n")
-
-                cross_over, cross_under, ema_short, ema_long = check_ema_cross(historical_data)
-                close_price = latest_data['close']
-
-                # Print the EMA values for the last two candles with the symbol name
-                print(f"EMA Short [-1]: {ema_short.iloc[-1]}, EMA Short [-2]: {ema_short.iloc[-2]}")
-                print(f"EMA Long [-1]: {ema_long.iloc[-1]}, EMA Long [-2]: {ema_long.iloc[-2]}\n")
+                cross_over, cross_under = check_ema_cross(historical_data)
+                close_price = historical_data['close'].iloc[-1]
 
                 # Calculate RSI for 6 and 21 periods using ta library
                 rsi_6 = calculate_rsi(historical_data, 6)
@@ -121,6 +105,10 @@ async def main():
 
                 last_rsi_6 = rsi_6.iloc[-2]
                 last_rsi_21 = rsi_21.iloc[-2]
+
+                # Print or log RSI values if needed
+                logging.info(f"RSI 6 (Last): {last_rsi_6}")
+                logging.info(f"RSI 21 (Last): {last_rsi_21}")
 
                 # Define your conditions for sending alerts based on EMA crosses
                 if cross_over:
@@ -131,10 +119,7 @@ async def main():
         except Exception as e:
             logging.error(f"Error in main loop: {e}")
 
-        # Sleep until the next full hour in UTC
-        sleep_duration = time_until_next_hour()
-        logging.info(f"Sleeping for {sleep_duration / 60:.2f} minutes until the next full hour in UTC.")
-        await asyncio.sleep(sleep_duration)
+        await asyncio.sleep(60)  # Adjust sleep time as necessary
 
 # Use nest_asyncio to allow running asyncio in Jupyter notebooks
 nest_asyncio.apply()
