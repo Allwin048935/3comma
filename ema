@@ -101,12 +101,15 @@ async def main():
             )
             
             for historical_data, symbol in zip(historical_data_list, config1.SELECTED_SYMBOLS):
-                # Print some sample data for debugging
+                # Get the latest timestamp and its corresponding values
+                latest_timestamp = historical_data.index[-1]
+                latest_data = historical_data.loc[latest_timestamp]
+                
                 print(f"Symbol: {symbol}")
-                print(f"Data Sample:\n{historical_data.head()}\n")
+                print(f"Latest Data Sample:\n{latest_data}\n")
 
                 cross_over, cross_under, ema_short, ema_long = check_ema_cross(historical_data)
-                close_price = historical_data['close'].iloc[-1]
+                close_price = latest_data['close']
 
                 # Print the EMA values for the last two candles with the symbol name
                 print(f"EMA Short [-1]: {ema_short.iloc[-1]}, EMA Short [-2]: {ema_short.iloc[-2]}")
