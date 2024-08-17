@@ -35,25 +35,25 @@ async def get_historical_data(symbol, interval, limit=50):
     df.set_index('timestamp', inplace=True)
     return df
 
-# Function to calculate EMA
+# Function to calculate EMA using ta library
 def calculate_ema(df, period):
-    ema = ta.trend.EMAIndicator(df['close'], window=period)
-    return ema.ema_indicator()
+    ema_indicator = ta.trend.EMAIndicator(df['close'], window=period)
+    return ema_indicator.ema_indicator()
 
 # Function to check EMA cross
 def check_ema_cross(df, short_period=5, long_period=10):
     if len(df) < long_period:  # Ensure enough data points
-        return False, False
+        return False, False, None, None
 
     # Calculate short and long EMAs
-    ema_short = calculate_ema(df, short_period)
-    ema_long = calculate_ema(df, long_period)
+    df['ema_short'] = calculate_ema(df, short_period)
+    df['ema_long'] = calculate_ema(df, long_period)
 
     # Check for crossovers
-    cross_over = ema_short.iloc[-1] >= ema_long.iloc[-1] and ema_short.iloc[-2] <= ema_long.iloc[-2]
-    cross_under = ema_short.iloc[-1] <= ema_long.iloc[-1] and ema_short.iloc[-2] >= ema_long.iloc[-2]
+    cross_over = df['ema_short'].iloc[-1] >= df['ema_long'].iloc[-1] and df['ema_short'].iloc[-2] <= df['ema_long'].iloc[-2]
+    cross_under = df['ema_short'].iloc[-1] <= df['ema_long'].iloc[-1] and df['ema_short'].iloc[-2] >= df['ema_long'].iloc[-2]
 
-    return cross_over, cross_under, ema_short, ema_long
+    return cross_over, cross_under, df['ema_short'], df['ema_long']
 
 # Function to calculate RSI using ta library
 def calculate_rsi(df, period):
