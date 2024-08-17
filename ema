@@ -1,0 +1,129 @@
+import ccxt
+import pandas as pd
+import asyncio
+import nest_asyncio
+import requests
+import config1  # Use the updated config1 module
+from datetime import datetime, timezone, timedelta
+import ta  # Import the ta library
+import logging
+from concurrent.futures import ThreadPoolExecutor
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+
+# Create a thread pool executor for blocking calls
+executor = ThreadPoolExecutor(max_workers=5)
+
+interval = '2h'  # 2-hour candlesticks
+
+# Initialize Binance client
+binance = ccxt.binance({
+    'apiKey': config1.API_KEY,
+    'secret': config1.API_SECRET,
+})
+
+# Dictionary to store the last alert messages for each symbol
+last_alert_messages = {}
+
+# Function to get historical candlestick data
+async def get_historical_data(symbol, interval, limit=50):
+    loop = asyncio.get_event_loop()
+    ohlcv = await loop.run_in_executor(executor, binance.fetch_ohlcv, symbol, interval, limit)
+    df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+    df.set_index('timestamp', inplace=True)
+    return df
+
+# Function to calculate EMA
+def calculate_ema(df, period):
+    ema = ta.trend.EMAIndicator(df['close'], window=period)
+    return ema.ema_indicator()
+
+# Function to check EMA cross
+def check_ema_cross(df, short_period=5, long_period=10):
+    if len(df) < long_period:  # Ensure enough data points
+        return False, False
+
+    df['ema_short'] = calculate_ema(df, short_period)
+    df['ema_long'] = calculate_ema(df, long_period)
+
+    cross_over = df['ema_short'].iloc[-1] > df['ema_long'].iloc[-1] and df['ema_short'].iloc[-2] < df['ema_long'].iloc[-2]
+    cross_under = df['ema_short'].iloc[-1] < df['ema_long'].iloc[-1] and df['ema_short'].iloc[-2] > df['ema_long'].iloc[-2]
+
+    return cross_over, cross_under
+
+# Function to calculate RSI using ta library
+def calculate_rsi(df, period):
+    rsi = ta.momentum.RSIIndicator(df['close'], window=period)
+    return rsi.rsi()
+
+# Function to send a message to 3commas using a webhook
+def send_3commas_message(symbol, action, close_price):
+    if last_alert_messages.get(symbol) != action:
+        timestamp = datetime.now(timezone.utc).isoformat()
+        payload = {
+            "secret": config1.SECRET,
+            "max_lag": "300",
+            "timestamp": timestamp,
+            "trigger_price": str(close_price),
+            "tv_exchange": "BINANCE",
+            "tv_instrument": symbol.replace('/', '') + '.P',
+            "action": action,
+            "bot_uuid": "3054d7a6-d6ac-4e32-9abb-1f92ca1fa837"  # Consider making this configurable
+        }
+
+        url = config1.THREE_COMMAS_WEBHOOK_URL
+        response = requests.post(url, json=payload)
+        
+        if response.status_code == 200:
+            logging.info(f"Successfully sent alert for {symbol} with action {action}")
+            last_alert_messages[symbol] = action
+        else:
+            logging.error(f"Failed to send alert for {symbol}: {response.content}")
+
+# Function to calculate the time to wait until the next full hour
+def time_until_next_hour():
+    now = datetime.now(timezone.utc)
+    next_hour = (now + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+    return (next_hour - now).total_seconds()
+
+# Main function (now defined as async)
+async def main():
+    while True:
+        try:
+            # Fetch historical data for all selected symbols concurrently
+            historical_data_list = await asyncio.gather(
+                *[get_historical_data(symbol, interval) for symbol in config1.SELECTED_SYMBOLS]
+            )
+            
+            for historical_data, symbol in zip(historical_data_list, config1.SELECTED_SYMBOLS):
+                cross_over, cross_under = check_ema_cross(historical_data)
+                close_price = historical_data['close'].iloc[-1]
+
+                # Calculate RSI for 6 and 21 periods using ta library
+                rsi_6 = calculate_rsi(historical_data, 6)
+                rsi_21 = calculate_rsi(historical_data, 21)
+
+                last_rsi_6 = rsi_6.iloc[-2]
+                last_rsi_21 = rsi_21.iloc[-2]
+
+                # Define your conditions for sending alerts based on EMA crosses
+                if cross_over:
+                    send_3commas_message(symbol, "enter_long", close_price)
+                elif cross_under:
+                    send_3commas_message(symbol, "enter_short", close_price)
+
+        except Exception as e:
+            logging.error(f"Error in main loop: {e}")
+
+        # Sleep until the next full hour in UTC
+        sleep_duration = time_until_next_hour()
+        logging.info(f"Sleeping for {sleep_duration / 60:.2f} minutes until the next full hour in UTC.")
+        await asyncio.sleep(sleep_duration)
+
+# Use nest_asyncio to allow running asyncio in Jupyter notebooks
+nest_asyncio.apply()
+
+# Create and run the event loop
+asyncio.run(main())
