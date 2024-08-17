@@ -105,7 +105,7 @@ async def main():
                 print(f"Error processing {symbol}: {e}")
 
         # Sleep for a specified interval before checking again
-        await asyncio.sleep(180)  # 1 minute
+        await asyncio.sleep(300)  # 1 minute
 
 # Use nest_asyncio to allow running asyncio in Jupyter notebooks
 nest_asyncio.apply()
