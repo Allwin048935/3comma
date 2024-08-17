@@ -7,7 +7,9 @@ import config  # Import the config module
 import ta  # Import the ta library
 from datetime import datetime, timezone
 
-interval = '2h'  # 1-minute candlesticks
+interval = '2h'  # 2-hour candlesticks
+short_period = 5  # Short EMA period
+long_period = 10  # Long EMA period
 
 # Initialize Binance client
 binance = ccxt.binance({
@@ -42,12 +44,14 @@ def check_ema_crossover(df, short_period=12, long_period=26):
     
     return cross_over, cross_under
 
-# Function to print EMA values
-def print_ema_values(df):
-    print("Short EMA values:")
-    print(df[['ema_short']].tail(10))  # Print the last 10 values of short EMA
-    print("Long EMA values:")
-    print(df[['ema_long']].tail(10))  # Print the last 10 values of long EMA
+# Function to print the latest EMA values with symbol name
+def print_latest_ema_values(df, symbol, short_period, long_period):
+    latest_short_ema = df['ema_short'].iloc[-1]
+    latest_long_ema = df['ema_long'].iloc[-1]
+    
+    print(f"Symbol: {symbol}")
+    print(f"Latest Short EMA ({short_period} periods): {latest_short_ema}")
+    print(f"Latest Long EMA ({long_period} periods): {latest_long_ema}")
 
 # Function to send a message to 3commas using a webhook
 def send_3commas_message(symbol, action, close_price):
@@ -86,8 +90,8 @@ async def main():
                 # Fetch historical data only once per symbol
                 historical_data = get_historical_data(symbol, interval)
                 
-                cross_over, cross_under = check_ema_crossover(historical_data)
-                print_ema_values(historical_data)  # Print EMA values
+                cross_over, cross_under = check_ema_crossover(historical_data, short_period, long_period)
+                print_latest_ema_values(historical_data, symbol, short_period, long_period)  # Print latest EMA values
 
                 close_price = historical_data['close'].iloc[-1]
 
