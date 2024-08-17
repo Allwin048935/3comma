@@ -7,9 +7,9 @@ import config  # Import the config module
 import ta  # Import the ta library
 from datetime import datetime, timezone
 
-interval = '1d'  # 2-hour candlesticks
+interval = '15m'  # 2-hour candlesticks
 short_period = 5  # Short EMA period
-long_period = 10  # Long EMA period
+long_period = 200  # Long EMA period
 
 # Initialize Binance client
 binance = ccxt.binance({
@@ -21,7 +21,7 @@ binance = ccxt.binance({
 last_alert_messages = {}
 
 # Function to get historical candlestick data
-def get_historical_data(symbol, interval, limit=50):
+def get_historical_data(symbol, interval, limit=500):
     ohlcv = binance.fetch_ohlcv(symbol, interval, limit=limit)
     df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
     df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
@@ -46,12 +46,12 @@ def check_ema_crossover(df, short_period=5, long_period=10):
 
 # Function to print the latest EMA values with symbol name
 def print_latest_ema_values(df, symbol, short_period, long_period):
-    latest_short_ema = df['ema_short'].iloc[-1]
-    latest_long_ema = df['ema_long'].iloc[-1]
+    latest_short_ema = df['ema_short'].iloc[-2]
+    latest_long_ema = df['ema_long'].iloc[-2]
     
-    # print(f"Symbol: {symbol}")
-    # print(f"Latest Short EMA ({short_period} periods): {latest_short_ema}")
-    # print(f"Latest Long EMA ({long_period} periods): {latest_long_ema}")
+    print(f"Symbol: {symbol}")
+    print(f"Latest Short EMA ({short_period} periods): {latest_short_ema}")
+    print(f"Latest Long EMA ({long_period} periods): {latest_long_ema}")
 
 # Function to send a message to 3commas using a webhook
 def send_3commas_message(symbol, action, close_price):
@@ -105,7 +105,7 @@ async def main():
                 print(f"Error processing {symbol}: {e}")
 
         # Sleep for a specified interval before checking again
-        await asyncio.sleep(3600)  # 1 minute
+        await asyncio.sleep(60)  # 1 minute
 
 # Use nest_asyncio to allow running asyncio in Jupyter notebooks
 nest_asyncio.apply()
