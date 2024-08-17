@@ -34,13 +34,13 @@ def calculate_ema(df, period):
     return ema.ema_indicator()
 
 # Function to check EMA crossover
-def check_ema_crossover(df, short_period=5, long_period=10):
+def check_ema_crossover(df, short_period=5, long_period=200):
     df['ema_short'] = calculate_ema(df, short_period)
     df['ema_long'] = calculate_ema(df, long_period)
     
     # Crossover conditions
-    cross_over = df['ema_short'].iloc[-1] >= df['ema_long'].iloc[-1]
-    cross_under = df['ema_short'].iloc[-1] <= df['ema_long'].iloc[-1]
+    cross_over = df['ema_short'].iloc[-2] >= df['ema_long'].iloc[-2] and df['ema_short'].iloc[-3] <= df['ema_long'].iloc[-3]
+    cross_under = df['ema_short'].iloc[-2] <= df['ema_long'].iloc[-2] and df['ema_short'].iloc[-3] >= df['ema_long'].iloc[-3]
     
     return cross_over, cross_under
 
@@ -49,9 +49,9 @@ def print_latest_ema_values(df, symbol, short_period, long_period):
     latest_short_ema = df['ema_short'].iloc[-2]
     latest_long_ema = df['ema_long'].iloc[-2]
     
-    print(f"Symbol: {symbol}")
-    print(f"Latest Short EMA ({short_period} periods): {latest_short_ema}")
-    print(f"Latest Long EMA ({long_period} periods): {latest_long_ema}")
+    # print(f"Symbol: {symbol}")
+    # print(f"Latest Short EMA ({short_period} periods): {latest_short_ema}")
+    # print(f"Latest Long EMA ({long_period} periods): {latest_long_ema}")
 
 # Function to send a message to 3commas using a webhook
 def send_3commas_message(symbol, action, close_price):
@@ -105,7 +105,7 @@ async def main():
                 print(f"Error processing {symbol}: {e}")
 
         # Sleep for a specified interval before checking again
-        await asyncio.sleep(60)  # 1 minute
+        await asyncio.sleep(300)  # 1 minute
 
 # Use nest_asyncio to allow running asyncio in Jupyter notebooks
 nest_asyncio.apply()
