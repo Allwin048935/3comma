@@ -45,13 +45,15 @@ def check_ema_cross(df, short_period=5, long_period=10):
     if len(df) < long_period:  # Ensure enough data points
         return False, False
 
-    df['ema_short'] = calculate_ema(df, short_period)
-    df['ema_long'] = calculate_ema(df, long_period)
+    # Calculate short and long EMAs
+    ema_short = calculate_ema(df, short_period)
+    ema_long = calculate_ema(df, long_period)
 
-    cross_over = df['ema_short'].iloc[-1] >= df['ema_long'].iloc[-1] and df['ema_short'].iloc[-2] <= df['ema_long'].iloc[-2]
-    cross_under = df['ema_short'].iloc[-1] <= df['ema_long'].iloc[-1] and df['ema_short'].iloc[-2] >= df['ema_long'].iloc[-2]
+    # Check for crossovers
+    cross_over = ema_short.iloc[-1] >= ema_long.iloc[-1] and ema_short.iloc[-2] <= ema_long.iloc[-2]
+    cross_under = ema_short.iloc[-1] <= ema_long.iloc[-1] and ema_short.iloc[-2] >= ema_long.iloc[-2]
 
-    return cross_over, cross_under
+    return cross_over, cross_under, ema_short, ema_long
 
 # Function to calculate RSI using ta library
 def calculate_rsi(df, period):
@@ -98,12 +100,8 @@ async def main():
             )
             
             for historical_data, symbol in zip(historical_data_list, config1.SELECTED_SYMBOLS):
-                cross_over, cross_under = check_ema_cross(historical_data)
+                cross_over, cross_under, ema_short, ema_long = check_ema_cross(historical_data)
                 close_price = historical_data['close'].iloc[-1]
-
-                # Calculate the EMA values for debugging/printing
-                ema_short = calculate_ema(historical_data, short_period=5)
-                ema_long = calculate_ema(historical_data, long_period=10)
 
                 # Print the EMA values for the last two candles with the symbol name
                 print(f"Symbol: {symbol}")
