@@ -45,7 +45,7 @@ def print_latest_macd_values(df, symbol):
     latest_macd = df['macd'].iloc[-2]
     latest_macd_signal = df['macd_signal'].iloc[-2]
     latest_macd_hist = df['macd_hist'].iloc[-2]
-    print(f"Symbol: {symbol} | MACD: {latest_macd:.2f} | Signal: {latest_macd_signal:.2f} | Histogram: {latest_macd_hist:.2f}")
+    print(f"Symbol: {symbol} | MACD: {latest_macd:.10f} | Signal: {latest_macd_signal:.10f} | Histogram: {latest_macd_hist:.10f}")
 
 # Function to send a message to 3commas using a webhook
 def send_3commas_message(symbol, action, close_price):
