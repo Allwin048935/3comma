@@ -36,8 +36,8 @@ def calculate_macd(df):
 
 # Function to check MACD crossover
 def check_macd_crossover(df):
-    macd_above_signal = df['macd'].iloc[-2] > df['macd_signal'].iloc[-2] and df['macd'].iloc[-3] <= df['macd_signal'].iloc[-3]
-    macd_below_signal = df['macd'].iloc[-2] < df['macd_signal'].iloc[-2] and df['macd'].iloc[-3] >= df['macd_signal'].iloc[-3]
+    macd_above_signal = df['macd_signal'].iloc[-2] > df['macd_signal'].iloc[-3] #and df['macd'].iloc[-3] <= df['macd_signal'].iloc[-3]
+    macd_below_signal = df['macd_signal'].iloc[-2] < df['macd_signal'].iloc[-3] #and df['macd'].iloc[-3] >= df['macd_signal'].iloc[-3]
     return macd_above_signal, macd_below_signal
 
 # Function to print the latest MACD values with symbol name
