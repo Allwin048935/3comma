@@ -91,7 +91,7 @@ async def main():
             except Exception as e:
                 print(f"Error processing {symbol}: {e}")
 
-        await asyncio.sleep(config.CHECK_INTERVAL)  # Configurable sleep interval
+        await asyncio.sleep(300)  # Configurable sleep interval
 
 # Use nest_asyncio to allow running asyncio in Jupyter notebooks
 nest_asyncio.apply()
