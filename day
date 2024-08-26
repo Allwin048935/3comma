@@ -6,7 +6,7 @@ import requests
 import config
 from datetime import datetime, timezone
 
-interval = '15m'  # Weekly candlesticks
+interval = '3m'  # Weekly candlesticks
 
 # Initialize Binance client
 binance = ccxt.binance({
@@ -96,7 +96,7 @@ async def main():
                 print(f"Error processing {symbol}: {e}")
 
         # Sleep for a week (7 days) before checking again
-        await asyncio.sleep(300)  # Sleep for 1 week (in seconds)
+        await asyncio.sleep(180)  # Sleep for 1 week (in seconds)
 
 # Use nest_asyncio to allow running asyncio in Jupyter notebooks
 nest_asyncio.apply()
