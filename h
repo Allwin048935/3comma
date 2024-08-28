@@ -30,13 +30,23 @@ def calculate_heikin_ashi(df):
     ha_df = df.copy()
     ha_df['ha_close'] = (df['open'] + df['high'] + df['low'] + df['close']) / 4
     ha_df['ha_open'] = (df['open'].shift(1) + df['close'].shift(1)) / 2
-    ha_df['ha_high'] = df[['high', 'ha_open', 'ha_close']].max(axis=1)
-    ha_df['ha_low'] = df[['low', 'ha_open', 'ha_close']].min(axis=1)
+    ha_df['ha_high'] = ha_df[['high', 'ha_open', 'ha_close']].max(axis=1)
+    ha_df['ha_low'] = ha_df[['low', 'ha_open', 'ha_close']].min(axis=1)
     ha_df = ha_df.dropna()  # Drop rows with NaN values
+    
+    # Debugging: Print columns after calculation
+    print("Columns after Heikin-Ashi calculation:", ha_df.columns)
+    
     return ha_df
 
 # Function to check consecutive Heikin-Ashi bars
 def check_consecutive_bars(df, num_bars=3):
+    if df.empty:
+        return False, False
+    
+    # Debugging: Print DataFrame head for consecutive bars check
+    print("DataFrame head for consecutive bars check:", df.head())
+    
     df['ha_direction'] = df['ha_close'] > df['ha_open']
     df['consecutive_up'] = df['ha_direction'].rolling(window=num_bars).sum() == num_bars
     df['consecutive_down'] = (~df['ha_direction']).rolling(window=num_bars).sum() == num_bars
@@ -105,7 +115,7 @@ async def main():
                 print(f"Error processing {symbol}: {e}")
 
         # Sleep for a week (7 days) before checking again
-        await asyncio.sleep(180)  # Sleep for 1 week (in seconds)
+        await asyncio.sleep(604800)  # Sleep for 1 week (in seconds)
 
 # Use nest_asyncio to allow running asyncio in Jupyter notebooks
 nest_asyncio.apply()
