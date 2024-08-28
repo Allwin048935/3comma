@@ -34,25 +34,27 @@ def calculate_heikin_ashi(df):
     ha_df['ha_low'] = ha_df[['low', 'ha_open', 'ha_close']].min(axis=1)
     ha_df = ha_df.dropna()  # Drop rows with NaN values
     
-    # Debugging: Print columns after calculation
-    print("Columns after Heikin-Ashi calculation:", ha_df.columns)
+    # Print last and previous Heikin-Ashi close prices for debugging
+    print("Last Heikin-Ashi close price:", ha_df['ha_close'].iloc[-1])
+    print("Previous Heikin-Ashi close price:", ha_df['ha_close'].iloc[-2])
     
     return ha_df
 
-# Function to check consecutive Heikin-Ashi bars
-def check_consecutive_bars(df, num_bars=3):
-    if df.empty:
+# Function to check Heikin-Ashi close price conditions
+def check_heikin_ashi_conditions(df):
+    if len(df) < 4:
         return False, False
     
-    # Debugging: Print DataFrame head for consecutive bars check
-    print("DataFrame head for consecutive bars check:", df.head())
+    last_close = df['ha_close'].iloc[-1]
+    prev_close = df['ha_close'].iloc[-2]
+    second_last_close = df['ha_close'].iloc[-3]
     
-    df['ha_direction'] = df['ha_close'] > df['ha_open']
-    df['consecutive_up'] = df['ha_direction'].rolling(window=num_bars).sum() == num_bars
-    df['consecutive_down'] = (~df['ha_direction']).rolling(window=num_bars).sum() == num_bars
-    return df['consecutive_up'].iloc[-1], df['consecutive_down'].iloc[-1]
+    long_condition = last_close > prev_close and prev_close > second_last_close
+    short_condition = last_close < prev_close and prev_close < second_last_close
+    
+    return long_condition, short_condition
 
-# Function to get weekly open price
+# Function to get weekly open price (not used in current conditions but retained for completeness)
 def get_weekly_open_price(symbol):
     weekly_ohlcv = binance.fetch_ohlcv(symbol, '1w', limit=5)
     df_weekly = pd.DataFrame(weekly_ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
@@ -95,20 +97,19 @@ async def main():
     while True:
         for symbol in config.SELECTED_SYMBOLS:
             try:
-                # Fetch historical data and weekly open price
+                # Fetch historical data
                 historical_data = get_historical_data(symbol, interval)
-                weekly_open_price = get_weekly_open_price(symbol)  # Get the weekly open price
                 
                 # Calculate Heikin-Ashi candles
                 heikin_ashi_data = calculate_heikin_ashi(historical_data)
-                consecutive_up, consecutive_down = check_consecutive_bars(heikin_ashi_data)
+                long_condition, short_condition = check_heikin_ashi_conditions(heikin_ashi_data)
 
                 close_price = heikin_ashi_data['ha_close'].iloc[-1]
 
-                # Determine the action based on consecutive Heikin-Ashi bars
-                if consecutive_up:
+                # Determine the action based on Heikin-Ashi close price conditions
+                if long_condition:
                     send_3commas_message(symbol, "enter_long", close_price)
-                elif consecutive_down:
+                elif short_condition:
                     send_3commas_message(symbol, "enter_short", close_price)
 
             except Exception as e:
