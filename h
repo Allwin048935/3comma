@@ -6,7 +6,7 @@ import requests
 import config
 from datetime import datetime, timezone
 
-interval = '3m'  # Candlestick interval
+interval = '4h'  # Candlestick interval
 
 # Initialize Binance client
 binance = ccxt.binance({
@@ -18,7 +18,7 @@ binance = ccxt.binance({
 last_alert_messages = {}
 
 # Function to get historical candlestick data
-def get_historical_data(symbol, interval, limit=100):
+def get_historical_data(symbol, interval, limit=20):
     ohlcv = binance.fetch_ohlcv(symbol, interval, limit=limit)
     df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
     df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
@@ -35,19 +35,19 @@ def calculate_heikin_ashi(df):
     ha_df = ha_df.dropna()  # Drop rows with NaN values
     
     # Print last and previous Heikin-Ashi close prices for debugging
-    print("Last Heikin-Ashi close price:", ha_df['ha_close'].iloc[-1])
-    print("Previous Heikin-Ashi close price:", ha_df['ha_close'].iloc[-2])
+    print("Last Heikin-Ashi close price:", ha_df['ha_close'].iloc[-2])
+    print("Previous Heikin-Ashi close price:", ha_df['ha_close'].iloc[-3])
     
     return ha_df
 
 # Function to check Heikin-Ashi close price conditions
 def check_heikin_ashi_conditions(df):
-    if len(df) < 4:
+    if len(df) < 5:
         return False, False
     
-    last_close = df['ha_close'].iloc[-1]
-    prev_close = df['ha_close'].iloc[-2]
-    second_last_close = df['ha_close'].iloc[-3]
+    last_close = df['ha_close'].iloc[-2]
+    prev_close = df['ha_close'].iloc[-3]
+    second_last_close = df['ha_close'].iloc[-4]
     
     long_condition = last_close > prev_close and prev_close > second_last_close
     short_condition = last_close < prev_close and prev_close < second_last_close
@@ -116,7 +116,7 @@ async def main():
                 print(f"Error processing {symbol}: {e}")
 
         # Sleep for a week (7 days) before checking again
-        await asyncio.sleep(604800)  # Sleep for 1 week (in seconds)
+        await asyncio.sleep(300)  # Sleep for 1 week (in seconds)
 
 # Use nest_asyncio to allow running asyncio in Jupyter notebooks
 nest_asyncio.apply()
