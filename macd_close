@@ -1,0 +1,106 @@
+import ccxt
+import pandas as pd
+import asyncio
+import nest_asyncio
+import requests
+import config
+import ta
+from datetime import datetime, timezone
+
+interval = '1h'  # 4-hour candlesticks
+
+# Initialize Binance client
+binance = ccxt.binance({
+    'apiKey': config.API_KEY,
+    'secret': config.API_SECRET,
+})
+
+# Dictionary to store the last alert messages for each symbol
+last_alert_messages = {}
+
+# Function to get historical candlestick data
+def get_historical_data(symbol, interval, limit=50):
+    ohlcv = binance.fetch_ohlcv(symbol, interval, limit=limit)
+    df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+    df.set_index('timestamp', inplace=True)
+    return df
+
+# Function to calculate SMA
+def calculate_sma(df, period=5):
+    df['sma'] = df['close'].rolling(window=period).mean()
+    return df
+
+# Function to calculate MACD using the SMA instead of the close prices directly
+def calculate_macd_from_sma(df):
+    macd_indicator = ta.trend.MACD(df['sma'])
+    df['macd'] = macd_indicator.macd()
+    df['macd_signal'] = macd_indicator.macd_signal()
+    df['macd_hist'] = macd_indicator.macd_diff()  # MACD histogram
+    return df
+
+# Function to check MACD crossover
+def check_macd_crossover(df):
+    macd_above_signal = df['macd_hist'].iloc[-2] > df['macd_hist'].iloc[-3] and df['macd_hist'].iloc[-3] < df['macd_hist'].iloc[-4] and df['sma'].iloc[-2] > df['sma'].iloc[-3]
+    macd_below_signal = df['macd_hist'].iloc[-2] < df['macd_hist'].iloc[-3] and df['macd_hist'].iloc[-3] > df['macd_hist'].iloc[-4] and df['sma'].iloc[-2] < df['sma'].iloc[-3]
+    return macd_above_signal, macd_below_signal
+
+# Function to print the latest MACD values with symbol name
+def print_latest_macd_values(df, symbol):
+    latest_macd = df['macd'].iloc[-2]
+    latest_macd_signal = df['macd_signal'].iloc[-2]
+    latest_macd_hist = df['macd_hist'].iloc[-2]
+    #print(f"Symbol: {symbol} | MACD: {latest_macd:.10f} | Signal: {latest_macd_signal:.10f} | Histogram: {latest_macd_hist:.10f}")
+
+# Function to send a message to 3commas using a webhook
+def send_3commas_message(symbol, action, close_price):
+    if last_alert_messages.get(symbol) != action:
+        timestamp = datetime.now(timezone.utc).isoformat()
+        payload = {
+            "secret": config.SECRET,
+            "max_lag": "300",
+            "timestamp": timestamp,
+            "trigger_price": str(close_price),
+            "tv_exchange": "BINANCE",
+            "tv_instrument": symbol.replace('/', '') + '.P',
+            "action": action,
+            "bot_uuid": "3054d7a6-d6ac-4e32-9abb-1f92ca1fa837"
+        }
+        url = config.THREE_COMMAS_WEBHOOK_URL
+        response = requests.post(url, json=payload)
+        
+        if response.status_code == 200:
+            print(f"Successfully sent alert for {symbol} with action {action}")
+            last_alert_messages[symbol] = action
+        else:
+            print(f"Failed to send alert for {symbol}: {response.content}")
+
+# Main function
+async def main():
+    while True:
+        for symbol in config.SELECTED_SYMBOLS:
+            try:
+                historical_data = get_historical_data(symbol, interval)
+                historical_data = calculate_sma(historical_data)
+                historical_data = calculate_macd_from_sma(historical_data)
+                
+                macd_above_signal, macd_below_signal = check_macd_crossover(historical_data)
+                print_latest_macd_values(historical_data, symbol)
+
+                close_price = historical_data['close'].iloc[-1]
+
+                if macd_above_signal:
+                    send_3commas_message(symbol, "enter_long", close_price)
+                elif macd_below_signal:
+                    send_3commas_message(symbol, "enter_short", close_price)
+
+            except Exception as e:
+                print(f"Error processing {symbol}: {e}")
+
+        await asyncio.sleep(300)  # Configurable sleep interval
+
+# Use nest_asyncio to allow running asyncio in Jupyter notebooks
+nest_asyncio.apply()
+
+# Create and run the event loop
+asyncio.run(main())
