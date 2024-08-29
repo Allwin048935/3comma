@@ -41,8 +41,8 @@ def calculate_macd_from_sma(df):
 
 # Function to check MACD crossover
 def check_macd_crossover(df):
-    macd_above_signal = df['macd_hist'].iloc[-2] > df['macd_hist'].iloc[-3] and df['macd_hist'].iloc[-3] < df['macd_hist'].iloc[-4] and df['sma'].iloc[-2] > df['sma'].iloc[-3]
-    macd_below_signal = df['macd_hist'].iloc[-2] < df['macd_hist'].iloc[-3] and df['macd_hist'].iloc[-3] > df['macd_hist'].iloc[-4] and df['sma'].iloc[-2] < df['sma'].iloc[-3]
+    macd_above_signal = df['sma'].iloc[-2] < df['sma'].iloc[-3]
+    macd_below_signal = df['sma'].iloc[-2] > df['sma'].iloc[-3]
     return macd_above_signal, macd_below_signal
 
 # Function to print the latest MACD values with symbol name
@@ -90,9 +90,9 @@ async def main():
                 close_price = historical_data['close'].iloc[-1]
 
                 if macd_above_signal:
-                    send_3commas_message(symbol, "enter_long", close_price)
+                    send_3commas_message(symbol, "exit_long", close_price)
                 elif macd_below_signal:
-                    send_3commas_message(symbol, "enter_short", close_price)
+                    send_3commas_message(symbol, "exit_short", close_price)
 
             except Exception as e:
                 print(f"Error processing {symbol}: {e}")
