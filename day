@@ -39,11 +39,38 @@ def get_weekly_open_price(symbol):
 def calculate_sma(df, period):
     return df['close'].rolling(window=period).mean()
 
-# Function to check SMA crossover against weekly open price
-def check_sma_crossover_vs_weekly_open(df, weekly_open_price, short_period=2):
+# Function to get 1h data for BTC/USDT and check if the latest close is greater than open
+def check_btcusdt_crossover():
+    btc_symbol = 'BTC/USDT'
+    btc_ohlcv = binance.fetch_ohlcv(btc_symbol, '1h', limit=2)  # Fetch the last 2 candles
+    btc_df = pd.DataFrame(btc_ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+    btc_df['timestamp'] = pd.to_datetime(btc_df['timestamp'], unit='ms')
+    btc_df.set_index('timestamp', inplace=True)
+
+    latest_open = btc_df['open'].iloc[-1]
+    latest_close = btc_df['close'].iloc[-1]
+
+    btc_cross_over = latest_close > latest_open
+    btc_cross_down = latest_close < latest_open
+
+    return btc_cross_over, btc_cross_down
+
+# Function to check SMA crossover against weekly open price and include BTC/USDT condition
+def check_sma_crossover_vs_weekly_open(df, weekly_open_price, btc_cross_over, btc_cross_down, short_period=2):
     df['sma_short'] = calculate_sma(df, short_period)
-    cross_over = df['sma_short'].iloc[-3] < weekly_open_price and df['sma_short'].iloc[-2] > weekly_open_price
-    cross_under = df['sma_short'].iloc[-3] > weekly_open_price and df['sma_short'].iloc[-2] < weekly_open_price
+    
+    cross_over = (
+        df['sma_short'].iloc[-3] < weekly_open_price and
+        df['sma_short'].iloc[-2] > weekly_open_price and
+        btc_cross_over  # Including BTC crossover condition
+    )
+    
+    cross_under = (
+        df['sma_short'].iloc[-3] > weekly_open_price and
+        df['sma_short'].iloc[-2] < weekly_open_price and
+        btc_cross_down  # Including BTC cross-down condition
+    )
+    
     return cross_over, cross_under
 
 # Function to send a message to 3commas using a webhook
@@ -77,16 +104,26 @@ def send_3commas_message(symbol, action, close_price):
 # Main function (now defined as async)
 async def main():
     while True:
+        # Fetch BTC/USDT crossover conditions (but no alert is sent for BTC/USDT)
+        btc_cross_over, btc_cross_down = check_btcusdt_crossover()
+
         for symbol in config.SELECTED_SYMBOLS:
             try:
+                if symbol == 'BTC/USDT':
+                    continue  # Skip BTC/USDT as no message should be sent for it
+
                 # Fetch historical data and weekly open price only once per symbol
                 historical_data = get_historical_data(symbol, interval)
                 weekly_open_price = get_weekly_open_price(symbol)  # Get the weekly open price
-                cross_over, cross_under = check_sma_crossover_vs_weekly_open(historical_data, weekly_open_price)
+
+                # Check for cross over and cross under conditions, considering BTC/USDT crossover
+                cross_over, cross_under = check_sma_crossover_vs_weekly_open(
+                    historical_data, weekly_open_price, btc_cross_over, btc_cross_down
+                )
 
                 close_price = historical_data['close'].iloc[-1]
 
-                # Determine the action based on SMA crossover compared to weekly open price
+                # Determine the action based on the combined conditions
                 if cross_over:
                     send_3commas_message(symbol, "enter_long", close_price)
                 elif cross_under:
@@ -96,7 +133,7 @@ async def main():
                 print(f"Error processing {symbol}: {e}")
 
         # Sleep for a week (7 days) before checking again
-        await asyncio.sleep(180)  # Sleep for 1 week (in seconds)
+        await asyncio.sleep(180)  # Sleep for 3 minutes (for testing)
 
 # Use nest_asyncio to allow running asyncio in Jupyter notebooks
 nest_asyncio.apply()
