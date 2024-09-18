@@ -6,9 +6,9 @@ import requests
 import config
 from datetime import datetime, timezone
 
-interval = '3m'  # Weekly candlesticks
+interval = '5m'  # Weekly candlesticks
 
-# Initialize Binance client
+# Initialize binance client
 binance = ccxt.binance({
     'apiKey': config.API_KEY,
     'secret': config.API_SECRET,
@@ -18,7 +18,7 @@ binance = ccxt.binance({
 last_alert_messages = {}
 
 # Function to get historical candlestick data
-def get_historical_data(symbol, interval, limit=100):
+def get_historical_data(symbol, interval, limit=50):
     ohlcv = binance.fetch_ohlcv(symbol, interval, limit=limit)
     df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
     df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
@@ -42,8 +42,8 @@ def calculate_sma(df, period):
 # Function to check SMA crossover against weekly open price
 def check_sma_crossover_vs_weekly_open(df, weekly_open_price, short_period=2):
     df['sma_short'] = calculate_sma(df, short_period)
-    cross_over = df['sma_short'].iloc[-3] > weekly_open_price * 1.01 and df['sma_short'].iloc[-2] < weekly_open_price * 1.01
-    cross_under = df['sma_short'].iloc[-3] < weekly_open_price * 0.99 and df['sma_short'].iloc[-2] > weekly_open_price * 0.99
+    cross_over = df['sma_short'].iloc[-3] > weekly_open_price * 0.1 and df['sma_short'].iloc[-2] < weekly_open_price * 0.1
+    cross_under = df['sma_short'].iloc[-3] < weekly_open_price * -0.1 and df['sma_short'].iloc[-2] > weekly_open_price * -0.1
     return cross_over, cross_under
 
 # Function to send a message to 3commas using a webhook
@@ -55,7 +55,7 @@ def send_3commas_message(symbol, action, close_price):
             "max_lag": "300",
             "timestamp": timestamp,
             "trigger_price": str(close_price),
-            "tv_exchange": "BINANCE",
+            "tv_exchange": "binance",
             "tv_instrument": symbol.replace('/', '') + '.P',
             "action": action,
             "bot_uuid": "3054d7a6-d6ac-4e32-9abb-1f92ca1fa837"
@@ -95,8 +95,7 @@ async def main():
             except Exception as e:
                 print(f"Error processing {symbol}: {e}")
 
-        # Sleep for a week (7 days) before checking again
-        await asyncio.sleep(180)  # Sleep for 1 week (in seconds)
+        await asyncio.sleep(300)
 
 # Use nest_asyncio to allow running asyncio in Jupyter notebooks
 nest_asyncio.apply()
