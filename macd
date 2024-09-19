@@ -7,7 +7,7 @@ import config
 import ta
 from datetime import datetime, timezone
 
-interval = '1h'  # 4-hour candlesticks
+interval = '15m'  # 4-hour candlesticks
 
 # Initialize Binance client
 binance = ccxt.binance({
