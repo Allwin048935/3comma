@@ -74,7 +74,7 @@ def send_3commas_message(symbol, action, close_price):
             "tv_exchange": "BINANCE",
             "tv_instrument": symbol.replace('/', '') + '.P',
             "action": action,
-            "bot_uuid": "08dae002-5406-4092-83dd-d75b6f84c2e8"
+            "bot_uuid": "2cb946f7-4b8e-4a76-93d8-76fd0d6900d0"
         }
 
         try:
