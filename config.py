@@ -42,5 +42,5 @@ SELECTED_SYMBOLS = [
     'WLD/USDT', 'XEM/USDT', 'XLM/USDT',
     'XMR/USDT', 'XRP/USDT', 'XTZ/USDT',
     'XVS/USDT', 'ZEC/USDT', 'ZEN/USDT',
-    'ZIL/USDT', 'ZK/USDT', 'ZRO/USDT', 'ZRX/USDT'
+    'ZIL/USDT', 'ZK/USDT', 'ZRO/USDT', 'ZRX/USDT', 'FIO/USDT', 'FIDA/USDT'
 ]  # Add your desired symbols
