@@ -6,7 +6,7 @@ import requests
 import config
 from datetime import datetime, timezone
 
-interval = '5m'  # Weekly candlesticks
+interval = '5m'  # 15-minute candlesticks
 
 # Initialize binance client
 binance = ccxt.binance({
@@ -18,7 +18,7 @@ binance = ccxt.binance({
 last_alert_messages = {}
 
 # Function to get historical candlestick data
-def get_historical_data(symbol, interval, limit=50):
+def get_historical_data(symbol, interval, limit=100):
     ohlcv = binance.fetch_ohlcv(symbol, interval, limit=limit)
     df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
     df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
@@ -27,7 +27,7 @@ def get_historical_data(symbol, interval, limit=50):
 
 # Function to get weekly open price
 def get_weekly_open_price(symbol):
-    weekly_ohlcv = binance.fetch_ohlcv(symbol, '1w', limit=5)
+    weekly_ohlcv = binance.fetch_ohlcv(symbol, '1d', limit=5)
     df_weekly = pd.DataFrame(weekly_ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
     df_weekly['timestamp'] = pd.to_datetime(df_weekly['timestamp'], unit='ms')
     df_weekly.set_index('timestamp', inplace=True)
@@ -42,9 +42,25 @@ def calculate_sma(df, period):
 # Function to check SMA crossover against weekly open price
 def check_sma_crossover_vs_weekly_open(df, weekly_open_price, short_period=2):
     df['sma_short'] = calculate_sma(df, short_period)
-    cross_over = df['sma_short'].iloc[-3] < weekly_open_price * 0.1 and df['sma_short'].iloc[-2] > weekly_open_price * 0.1
-    cross_under = df['sma_short'].iloc[-3] > weekly_open_price * -0.1 and df['sma_short'].iloc[-2] < weekly_open_price * -0.1
+    cross_over = df['sma_short'].iloc[-3] < weekly_open_price and df['sma_short'].iloc[-2] > weekly_open_price
+    cross_under = df['sma_short'].iloc[-3] > weekly_open_price and df['sma_short'].iloc[-2] < weekly_open_price
     return cross_over, cross_under
+
+# Function to get previous day's amplitude ratio
+def get_previous_day_amplitude(symbol):
+    # Fetch 1-day candlesticks, limit to 2 (current and previous days)
+    daily_ohlcv = binance.fetch_ohlcv(symbol, '1d', limit=2)
+    df_daily = pd.DataFrame(daily_ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+    df_daily['timestamp'] = pd.to_datetime(df_daily['timestamp'], unit='ms')
+    df_daily.set_index('timestamp', inplace=True)
+    
+    # Get the amplitude of the previous day
+    prev_day_high = df_daily['high'].iloc[-2]
+    prev_day_low = df_daily['low'].iloc[-2]
+    
+    # Calculate amplitude ratio (high/low)
+    amplitude_ratio = prev_day_high / prev_day_low
+    return amplitude_ratio
 
 # Function to send a message to 3commas using a webhook
 def send_3commas_message(symbol, action, close_price):
@@ -55,10 +71,10 @@ def send_3commas_message(symbol, action, close_price):
             "max_lag": "300",
             "timestamp": timestamp,
             "trigger_price": str(close_price),
-            "tv_exchange": "binance",
+            "tv_exchange": "BINANCE",
             "tv_instrument": symbol.replace('/', '') + '.P',
             "action": action,
-            "bot_uuid": "3054d7a6-d6ac-4e32-9abb-1f92ca1fa837"
+            "bot_uuid": "08dae002-5406-4092-83dd-d75b6f84c2e8"
         }
 
         try:
@@ -86,16 +102,24 @@ async def main():
 
                 close_price = historical_data['close'].iloc[-1]
 
-                # Determine the action based on SMA crossover compared to weekly open price
-                if cross_over:
-                    send_3commas_message(symbol, "enter_long", close_price)
-                elif cross_under:
-                    send_3commas_message(symbol, "enter_short", close_price)
+                # Get amplitude ratio for the previous day
+                amplitude_ratio = get_previous_day_amplitude(symbol)
+
+                # Check if the amplitude ratio condition is met (minimum 1.1 for 10% change)
+                if amplitude_ratio >= 1.1:
+                    # Determine the action based on SMA crossover compared to weekly open price
+                    if cross_over:
+                        send_3commas_message(symbol, "enter_long", close_price)
+                    elif cross_under:
+                        send_3commas_message(symbol, "enter_short", close_price)
+                else:
+                    print(f"Amplitude condition not met for {symbol}, skipping...")
 
             except Exception as e:
                 print(f"Error processing {symbol}: {e}")
 
-        await asyncio.sleep(300)
+        # Sleep for a while before checking again
+        await asyncio.sleep(300)  # Sleep for 15 minutes (in seconds)
 
 # Use nest_asyncio to allow running asyncio in Jupyter notebooks
 nest_asyncio.apply()
