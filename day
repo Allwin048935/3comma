@@ -42,14 +42,14 @@ def calculate_sma(df, period):
 # Function to check SMA crossover against weekly open price
 def check_sma_crossover_vs_weekly_open(df, weekly_open_price, short_period=2):
     df['sma_short'] = calculate_sma(df, short_period)
-    cross_over = df['sma_short'].iloc[-3] < weekly_open_price and df['sma_short'].iloc[-2] > weekly_open_price
-    cross_under = df['sma_short'].iloc[-3] > weekly_open_price and df['sma_short'].iloc[-2] < weekly_open_price
+    cross_over = df['sma_short'].iloc[-2] > weekly_open_price
+    cross_under = df['sma_short'].iloc[-2] < weekly_open_price
     return cross_over, cross_under
 
 # Function to get previous day's amplitude ratio
 def get_previous_day_amplitude(symbol):
     # Fetch 1-day candlesticks, limit to 2 (current and previous days)
-    daily_ohlcv = binance.fetch_ohlcv(symbol, '1d', limit=2)
+    daily_ohlcv = binance.fetch_ohlcv(symbol, '1d', limit=5)
     df_daily = pd.DataFrame(daily_ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
     df_daily['timestamp'] = pd.to_datetime(df_daily['timestamp'], unit='ms')
     df_daily.set_index('timestamp', inplace=True)
