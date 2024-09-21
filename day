@@ -25,25 +25,25 @@ def get_historical_data(symbol, interval, limit=100):
     df.set_index('timestamp', inplace=True)
     return df
 
-# Function to get weekly open price
-def get_weekly_open_price(symbol):
-    weekly_ohlcv = binance.fetch_ohlcv(symbol, '1d', limit=5)
-    df_weekly = pd.DataFrame(weekly_ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-    df_weekly['timestamp'] = pd.to_datetime(df_weekly['timestamp'], unit='ms')
-    df_weekly.set_index('timestamp', inplace=True)
-    # Get the open price of the latest weekly candle
-    weekly_open_price = df_weekly['close'].iloc[-2]
-    return weekly_open_price
+# Function to get day open price
+def get_day_open_price(symbol):
+    day_ohlcv = binance.fetch_ohlcv(symbol, '1d', limit=5)
+    df_day = pd.DataFrame(day_ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+    df_day['timestamp'] = pd.to_datetime(df_day['timestamp'], unit='ms')
+    df_day.set_index('timestamp', inplace=True)
+    # Get the open price of the latest day candle
+    day_open_price = df_day['close'].iloc[-2]
+    return day_open_price
 
 # Function to calculate SMA
 def calculate_sma(df, period):
     return df['close'].rolling(window=period).mean()
 
-# Function to check SMA crossover against weekly open price
-def check_sma_crossover_vs_weekly_open(df, weekly_open_price, short_period=2):
+# Function to check SMA crossover against day open price
+def check_sma_crossover_vs_day_open(df, day_open_price, short_period=2):
     df['sma_short'] = calculate_sma(df, short_period)
-    cross_over = df['sma_short'].iloc[-2] > weekly_open_price
-    cross_under = df['sma_short'].iloc[-2] < weekly_open_price
+    cross_over = df['sma_short'].iloc[-2] > day_open_price
+    cross_under = df['sma_short'].iloc[-2] < day_open_price
     return cross_over, cross_under
 
 # Function to get previous day's amplitude ratio
@@ -95,10 +95,10 @@ async def main():
     while True:
         for symbol in config.SELECTED_SYMBOLS:
             try:
-                # Fetch historical data and weekly open price only once per symbol
+                # Fetch historical data and day open price only once per symbol
                 historical_data = get_historical_data(symbol, interval)
-                weekly_open_price = get_weekly_open_price(symbol)  # Get the weekly open price
-                cross_over, cross_under = check_sma_crossover_vs_weekly_open(historical_data, weekly_open_price)
+                day_open_price = get_day_open_price(symbol)  # Get the day open price
+                cross_over, cross_under = check_sma_crossover_vs_day_open(historical_data, day_open_price)
 
                 close_price = historical_data['close'].iloc[-1]
 
@@ -107,7 +107,7 @@ async def main():
 
                 # Check if the amplitude ratio condition is met (minimum 1.1 for 10% change)
                 if amplitude_ratio >= 1.1:
-                    # Determine the action based on SMA crossover compared to weekly open price
+                    # Determine the action based on SMA crossover compared to day open price
                     if cross_over:
                         send_3commas_message(symbol, "enter_long", close_price)
                     elif cross_under:
