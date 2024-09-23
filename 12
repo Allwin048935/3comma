@@ -3,90 +3,123 @@ import pandas as pd
 import asyncio
 import nest_asyncio
 import requests
-import config2  # Import the config2 module
+import config3
 from datetime import datetime, timezone
 
-interval = '1m'  # 1-minute candlesticks
+interval = '1m'  # 15-minute candlesticks
 
-# Initialize Binance client
+# Initialize binance client
 binance = ccxt.binance({
-    'apiKey': config2.API_KEY,
-    'secret': config2.API_SECRET,
+    'apiKey': config3.API_KEY,
+    'secret': config3.API_SECRET,
 })
 
 # Dictionary to store the last alert messages for each symbol
 last_alert_messages = {}
 
 # Function to get historical candlestick data
-def get_historical_data(symbol, interval, limit=300):
+def get_historical_data(symbol, interval, limit=100):
     ohlcv = binance.fetch_ohlcv(symbol, interval, limit=limit)
     df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
     df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
     df.set_index('timestamp', inplace=True)
     return df
 
-# Function to calculate VWMA
-def calculate_vwma(df, period):
-    return (df['close'] * df['volume']).rolling(window=period).sum() / df['volume'].rolling(window=period).sum()
+# Function to get day open price
+def get_day_open_price(symbol):
+    day_ohlcv = binance.fetch_ohlcv(symbol, '1d', limit=5)
+    df_day = pd.DataFrame(day_ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+    df_day['timestamp'] = pd.to_datetime(df_day['timestamp'], unit='ms')
+    df_day.set_index('timestamp', inplace=True)
+    # Get the open price of the latest day candle
+    day_open_price = df_day['close'].iloc[-2]
+    return day_open_price
 
-# Function to check VWMA cross
-def check_vwma_cross(df, short_period=7, long_period=200):
-    df['vwma_short'] = calculate_vwma(df, short_period)
-    df['vwma_long'] = calculate_vwma(df, long_period)
+# Function to calculate SMA
+def calculate_sma(df, period):
+    return df['close'].rolling(window=period).mean()
 
-    cross_over = df['vwma_short'].iloc[-2] >= df['vwma_long'].iloc[-2]
-    cross_under = df['vwma_short'].iloc[-2] <= df['vwma_long'].iloc[-2]
-
+# Function to check SMA crossover against day open price
+def check_sma_crossover_vs_day_open(df, day_open_price, short_period=2):
+    df['sma_short'] = calculate_sma(df, short_period)
+    cross_over = df['sma_short'].iloc[-2] > day_open_price
+    cross_under = df['sma_short'].iloc[-2] < day_open_price
     return cross_over, cross_under
+
+# Function to get previous day's amplitude ratio
+def get_previous_day_amplitude(symbol):
+    # Fetch 1-day candlesticks, limit to 2 (current and previous days)
+    daily_ohlcv = binance.fetch_ohlcv(symbol, '1d', limit=5)
+    df_daily = pd.DataFrame(daily_ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+    df_daily['timestamp'] = pd.to_datetime(df_daily['timestamp'], unit='ms')
+    df_daily.set_index('timestamp', inplace=True)
+    
+    # Get the amplitude of the previous day
+    prev_day_high = df_daily['high'].iloc[-2]
+    prev_day_low = df_daily['low'].iloc[-2]
+    
+    # Calculate amplitude ratio (high/low)
+    amplitude_ratio = prev_day_high / prev_day_low
+    return amplitude_ratio
 
 # Function to send a message to 3commas using a webhook
 def send_3commas_message(symbol, action, close_price):
-    # Check if the current message is the same as the previous one for this symbol
     if last_alert_messages.get(symbol) != action:
-        # Prepare payload based on the action
-        timestamp = datetime.now(timezone.utc).isoformat()  # ISO 8601 format
+        timestamp = datetime.now(timezone.utc).isoformat()
         payload = {
-            "secret": config2.SECRET,  # Ensure you have set this in your config2 module
+            "secret": config3.SECRET,
             "max_lag": "300",
             "timestamp": timestamp,
             "trigger_price": str(close_price),
-            "tv_exchange": "BINANCE",  # Ensure correct casing
-            "tv_instrument": symbol.replace('/', '') + '.P',  # Adjust format as needed
+            "tv_exchange": "BINANCE",
+            "tv_instrument": symbol.replace('/', '') + '.P',
             "action": action,
-            "bot_uuid": "3054d7a6-d6ac-4e32-9abb-1f92ca1fa837"  # Ensure this is correct
+            "bot_uuid": "2cb946f7-4b8e-4a76-93d8-76fd0d6900d0"
         }
-        # Print the payload for debugging
-        #print(f"Payload for {symbol} ({action}): {payload}")
 
-        url = config2.THREE_COMMAS_WEBHOOK_URL  # Ensure you have set this in your config2 module
-        response = requests.post(url, json=payload)
-        
-        if response.status_code == 200:
-            print(f"Successfully sent alert for {symbol} with action {action}")
-            # Update the last alert message for this symbol
-            last_alert_messages[symbol] = action
-        else:
-            print(f"Failed to send alert for {symbol}: {response.content}")
+        try:
+            url = config3.THREE_COMMAS_WEBHOOK_URL
+            response = requests.post(url, json=payload)
+
+            if response.status_code == 200:
+                print(f"Successfully sent alert for {symbol} with action {action}")
+                last_alert_messages[symbol] = action
+            else:
+                print(f"Failed to send alert for {symbol}: {response.content}")
+
+        except requests.RequestException as e:
+            print(f"Error sending request for {symbol}: {e}")
 
 # Main function (now defined as async)
 async def main():
     while True:
-        for symbol in config2.SELECTED_SYMBOLS:  # Ensure you have set this in your config2 module
+        for symbol in config3.SELECTED_SYMBOLS:
             try:
+                # Fetch historical data and day open price only once per symbol
                 historical_data = get_historical_data(symbol, interval)
-                cross_over, cross_under = check_vwma_cross(historical_data)
+                day_open_price = get_day_open_price(symbol)  # Get the day open price
+                cross_over, cross_under = check_sma_crossover_vs_day_open(historical_data, day_open_price)
+
                 close_price = historical_data['close'].iloc[-1]
 
-                if cross_over:
-                    send_3commas_message(symbol, "enter_long", close_price)
-                elif cross_under:
-                    send_3commas_message(symbol, "enter_short", close_price)
+                # Get amplitude ratio for the previous day
+                amplitude_ratio = get_previous_day_amplitude(symbol)
+
+                # Check if the amplitude ratio condition is met (minimum 1.1 for 10% change)
+                if amplitude_ratio >= 1.2:
+                    # Determine the action based on SMA crossover compared to day open price
+                    if cross_over:
+                        send_3commas_message(symbol, "enter_long", close_price)
+                    elif cross_under:
+                        send_3commas_message(symbol, "enter_short", close_price)
+                else:
+                    print(f"Amplitude condition not met for {symbol}, skipping...")
 
             except Exception as e:
                 print(f"Error processing {symbol}: {e}")
 
-        # Sleep for a specified interval before checking again
-        await asyncio.sleep(60)  # 1 minute
+        # Sleep for a while before checking again
+        await asyncio.sleep(60)  # Sleep for 15 minutes (in seconds)
 
 # Use nest_asyncio to allow running asyncio in Jupyter notebooks
 nest_asyncio.apply()
