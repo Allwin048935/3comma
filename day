@@ -6,7 +6,7 @@ import requests
 import config
 from datetime import datetime, timezone
 
-interval = '5m'  # 15-minute candlesticks
+interval = '1m'  # 15-minute candlesticks
 
 # Initialize binance client
 binance = ccxt.binance({
@@ -106,7 +106,7 @@ async def main():
                 amplitude_ratio = get_previous_day_amplitude(symbol)
 
                 # Check if the amplitude ratio condition is met (minimum 1.1 for 10% change)
-                if amplitude_ratio >= 1.19:
+                if amplitude_ratio >= 1.1:
                     # Determine the action based on SMA crossover compared to day open price
                     if cross_over:
                         send_3commas_message(symbol, "enter_long", close_price)
@@ -119,7 +119,7 @@ async def main():
                 print(f"Error processing {symbol}: {e}")
 
         # Sleep for a while before checking again
-        await asyncio.sleep(300)  # Sleep for 15 minutes (in seconds)
+        await asyncio.sleep(60)  # Sleep for 15 minutes (in seconds)
 
 # Use nest_asyncio to allow running asyncio in Jupyter notebooks
 nest_asyncio.apply()
