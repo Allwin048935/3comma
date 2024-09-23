@@ -3,15 +3,15 @@ import pandas as pd
 import asyncio
 import nest_asyncio
 import requests
-import config
+import config1
 from datetime import datetime, timezone
 
-interval = '1m'  # 1-minute candlesticks
+interval = '1m'  # 15-minute candlesticks
 
 # Initialize binance client
 binance = ccxt.binance({
-    'apiKey': config.API_KEY,
-    'secret': config.API_SECRET,
+    'apiKey': config1.API_KEY,
+    'secret': config1.API_SECRET,
 })
 
 # Dictionary to store the last alert messages for each symbol
@@ -67,7 +67,7 @@ def send_3commas_message(symbol, action, close_price):
     if last_alert_messages.get(symbol) != action:
         timestamp = datetime.now(timezone.utc).isoformat()
         payload = {
-            "secret": config.SECRET,
+            "secret": config1.SECRET,
             "max_lag": "300",
             "timestamp": timestamp,
             "trigger_price": str(close_price),
@@ -78,7 +78,7 @@ def send_3commas_message(symbol, action, close_price):
         }
 
         try:
-            url = config.THREE_COMMAS_WEBHOOK_URL
+            url = config1.THREE_COMMAS_WEBHOOK_URL
             response = requests.post(url, json=payload)
 
             if response.status_code == 200:
@@ -93,9 +93,7 @@ def send_3commas_message(symbol, action, close_price):
 # Main function (now defined as async)
 async def main():
     while True:
-        amplitude_data = []
-
-        for symbol in config.SELECTED_SYMBOLS:
+        for symbol in config1.SELECTED_SYMBOLS:
             try:
                 # Fetch historical data and day open price only once per symbol
                 historical_data = get_historical_data(symbol, interval)
@@ -106,28 +104,22 @@ async def main():
 
                 # Get amplitude ratio for the previous day
                 amplitude_ratio = get_previous_day_amplitude(symbol)
-                amplitude_data.append((symbol, amplitude_ratio, close_price, cross_over, cross_under))
+
+                # Check if the amplitude ratio condition is met (minimum 1.1 for 10% change)
+                if amplitude_ratio >= 1.2:
+                    # Determine the action based on SMA crossover compared to day open price
+                    if cross_over:
+                        send_3commas_message(symbol, "enter_long", close_price)
+                    elif cross_under:
+                        send_3commas_message(symbol, "enter_short", close_price)
+                else:
+                    print(f"Amplitude condition not met for {symbol}, skipping...")
 
             except Exception as e:
                 print(f"Error processing {symbol}: {e}")
 
-        # Sort symbols by amplitude ratio (greatest to lowest)
-        amplitude_data.sort(key=lambda x: x[1], reverse=True)
-
-        # Send alerts based on sorted amplitude data
-        for symbol, amplitude_ratio, close_price, cross_over, cross_under in amplitude_data:
-            # Check if the amplitude ratio condition is met (minimum 1.1 for 10% change)
-            if amplitude_ratio >= 1.1:
-                # Determine the action based on SMA crossover compared to day open price
-                if cross_over:
-                    send_3commas_message(symbol, "enter_long", close_price)
-                elif cross_under:
-                    send_3commas_message(symbol, "enter_short", close_price)
-            else:
-                print(f"Amplitude condition not met for {symbol}, skipping...")
-
         # Sleep for a while before checking again
-        await asyncio.sleep(60)  # Sleep for 1 minute (in seconds)
+        await asyncio.sleep(60)  # Sleep for 15 minutes (in seconds)
 
 # Use nest_asyncio to allow running asyncio in Jupyter notebooks
 nest_asyncio.apply()
