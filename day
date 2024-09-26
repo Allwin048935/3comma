@@ -113,7 +113,7 @@ async def main():
                     elif cross_under:
                         send_3commas_message(symbol, "enter_short", close_price)
                 else:
-                    #print(f"Amplitude condition not met for {symbol}, skipping...")
+                    print(f"Amplitude condition not met for {symbol}, skipping...")
 
             except Exception as e:
                 print(f"Error processing {symbol}: {e}")
