@@ -55,8 +55,8 @@ def get_previous_day_amplitude(symbol):
     df_daily.set_index('timestamp', inplace=True)
     
     # Get the amplitude of the previous day
-    prev_day_high = df_daily['high'].iloc[-2]
-    prev_day_low = df_daily['low'].iloc[-2]
+    prev_day_high = df_daily['high'].iloc[-3]
+    prev_day_low = df_daily['low'].iloc[-3]
     
     # Calculate amplitude ratio (high/low)
     amplitude_ratio = prev_day_high / prev_day_low
