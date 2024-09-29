@@ -6,7 +6,7 @@ import requests
 import config
 from datetime import datetime, timezone
 
-interval = '1m'  # 15-minute candlesticks
+interval = '2h'  # 15-minute candlesticks
 
 # Initialize binance client
 binance = ccxt.binance({
@@ -18,7 +18,7 @@ binance = ccxt.binance({
 last_alert_messages = {}
 
 # Function to get historical candlestick data
-def get_historical_data(symbol, interval, limit=100):
+def get_historical_data(symbol, interval, limit=20):
     ohlcv = binance.fetch_ohlcv(symbol, interval, limit=limit)
     df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
     df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
@@ -27,7 +27,7 @@ def get_historical_data(symbol, interval, limit=100):
 
 # Function to get day open price
 def get_day_open_price(symbol):
-    day_ohlcv = binance.fetch_ohlcv(symbol, '1d', limit=5)
+    day_ohlcv = binance.fetch_ohlcv(symbol, '1w', limit=3)
     df_day = pd.DataFrame(day_ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
     df_day['timestamp'] = pd.to_datetime(df_day['timestamp'], unit='ms')
     df_day.set_index('timestamp', inplace=True)
@@ -49,14 +49,14 @@ def check_sma_crossover_vs_day_open(df, day_open_price, short_period=2):
 # Function to get previous day's amplitude ratio
 def get_previous_day_amplitude(symbol):
     # Fetch 1-day candlesticks, limit to 2 (current and previous days)
-    daily_ohlcv = binance.fetch_ohlcv(symbol, '1d', limit=5)
+    daily_ohlcv = binance.fetch_ohlcv(symbol, '1w', limit=5)
     df_daily = pd.DataFrame(daily_ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
     df_daily['timestamp'] = pd.to_datetime(df_daily['timestamp'], unit='ms')
     df_daily.set_index('timestamp', inplace=True)
     
     # Get the amplitude of the previous day
-    prev_day_high = df_daily['high'].iloc[-3]
-    prev_day_low = df_daily['low'].iloc[-3]
+    prev_day_high = df_daily['high'].iloc[-2]
+    prev_day_low = df_daily['low'].iloc[-2]
     
     # Calculate amplitude ratio (high/low)
     amplitude_ratio = prev_day_high / prev_day_low
@@ -119,7 +119,7 @@ async def main():
                 print(f"Error processing {symbol}: {e}")
 
         # Sleep for a while before checking again
-        await asyncio.sleep(900)  # Sleep for 15 minutes (in seconds)
+        await asyncio.sleep(300)  # Sleep for 15 minutes (in seconds)
 
 # Use nest_asyncio to allow running asyncio in Jupyter notebooks
 nest_asyncio.apply()
