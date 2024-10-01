@@ -3,15 +3,15 @@ import pandas as pd
 import asyncio
 import nest_asyncio
 import requests
-import config3
+import config2
 from datetime import datetime, timezone
 
 interval = '1m'  # 15-minute candlesticks
 
 # Initialize binance client
 binance = ccxt.binance({
-    'apiKey': config3.API_KEY,
-    'secret': config3.API_SECRET,
+    'apiKey': config2.API_KEY,
+    'secret': config2.API_SECRET,
 })
 
 # Dictionary to store the last alert messages for each symbol
@@ -67,7 +67,7 @@ def send_3commas_message(symbol, action, close_price):
     if last_alert_messages.get(symbol) != action:
         timestamp = datetime.now(timezone.utc).isoformat()
         payload = {
-            "secret": config3.SECRET,
+            "secret": config2.SECRET,
             "max_lag": "300",
             "timestamp": timestamp,
             "trigger_price": str(close_price),
@@ -78,7 +78,7 @@ def send_3commas_message(symbol, action, close_price):
         }
 
         try:
-            url = config3.THREE_COMMAS_WEBHOOK_URL
+            url = config2.THREE_COMMAS_WEBHOOK_URL
             response = requests.post(url, json=payload)
 
             if response.status_code == 200:
@@ -93,7 +93,7 @@ def send_3commas_message(symbol, action, close_price):
 # Main function (now defined as async)
 async def main():
     while True:
-        for symbol in config3.SELECTED_SYMBOLS:
+        for symbol in config2.SELECTED_SYMBOLS:
             try:
                 # Fetch historical data and day open price only once per symbol
                 historical_data = get_historical_data(symbol, interval)
