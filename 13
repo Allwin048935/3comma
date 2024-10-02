@@ -7,7 +7,7 @@ import requests
 import config2
 from datetime import datetime, timezone
 
-interval = '1m'  # 15-minute candlesticks
+interval = '3m'  # 15-minute candlesticks
 
 # Initialize binance client
 binance = ccxt.binance({
@@ -41,7 +41,7 @@ def calculate_sma(df, period):
     return df['close'].rolling(window=period).mean()
 
 # Function to check SMA crossover against day open price
-def check_sma_crossover_vs_day_open(df, day_open_price, short_period=9):
+def check_sma_crossover_vs_day_open(df, day_open_price, short_period=3):
     df['sma_short'] = calculate_sma(df, short_period)
     cross_over = df['sma_short'].iloc[-2] > day_open_price
     cross_under = df['sma_short'].iloc[-2] < day_open_price
@@ -107,7 +107,7 @@ async def main():
                 amplitude_ratio = get_previous_day_amplitude(symbol)
 
                 # Check if the amplitude ratio condition is met (minimum 1.1 for 10% change)
-                if amplitude_ratio >= 1.1:
+                if amplitude_ratio >= 1.2:
                     # Determine the action based on SMA crossover compared to day open price
                     if cross_over:
                         send_3commas_message(symbol, "enter_long", close_price)
@@ -120,7 +120,7 @@ async def main():
                 print(f"Error processing {symbol}: {e}")
 
         # Sleep for a while before checking again
-        await asyncio.sleep(60)  # Sleep for 15 minutes (in seconds)
+        await asyncio.sleep(180)  # Sleep for 15 minutes (in seconds)
 
 # Use nest_asyncio to allow running asyncio in Jupyter notebooks
 nest_asyncio.apply()
