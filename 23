@@ -1,152 +1,44 @@
-import ccxt
-import pandas as pd
-import asyncio
-import nest_asyncio
-import requests
-import config3
-from datetime import datetime, timezone
-
-interval = '1m'  # 15-minute candlesticks
-
-# Initialize binance client
-binance = ccxt.binance({
-    'apiKey': config3.API_KEY,
-    'secret': config3.API_SECRET,
-})
-
-# Dictionary to store the last alert messages for each symbol
-last_alert_messages = {}
-
-# Function to get historical candlestick data
-def get_historical_data(symbol, interval, limit=100):
-    ohlcv = binance.fetch_ohlcv(symbol, interval, limit=limit)
-    df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-    df.set_index('timestamp', inplace=True)
-    return df
-
-# Function to get daily high and low
-def get_daily_high_low(symbol):
-    daily_ohlcv = binance.fetch_ohlcv(symbol, '1d', limit=3)  # Fetch 2 daily candles
-    df_daily = pd.DataFrame(daily_ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-    df_daily['timestamp'] = pd.to_datetime(df_daily['timestamp'], unit='ms')
-    df_daily.set_index('timestamp', inplace=True)
-
-    # Get the high and low of the previous day
-    daily_high = df_daily['high'].iloc[-1]
-    daily_low = df_daily['low'].iloc[-1]
-    
-    return daily_high, daily_low
-
-# Function to calculate SMA
-def calculate_sma(df, period):
-    return df['close'].rolling(window=period).mean()
-
-# Function to check SMA crossover vs. daily low and high for entry/exit
-def check_sma_crossover_vs_daily_low_high(df, daily_high, daily_low, short_period=2):
-    df['sma_short'] = calculate_sma(df, short_period)
-    
-    # 1% above the daily low for long entry
-    adjusted_low = daily_low * 1.01
-    # 1% below the daily high for short entry
-    adjusted_high = daily_high * 0.99
-    
-    # Conditions for entering long/short
-    enter_long = df['sma_short'].iloc[-2] > adjusted_low
-    enter_short = df['sma_short'].iloc[-2] < adjusted_high
-    
-    # Conditions for exiting long/short
-    exit_long = df['sma_short'].iloc[-2] < adjusted_low
-    exit_short = df['sma_short'].iloc[-2] > adjusted_high
-    
-    return enter_long, enter_short, exit_long, exit_short
-
-# Function to get previous day's amplitude ratio
-def get_previous_day_amplitude(symbol):
-    # Fetch 1-day candlesticks, limit to 2 (current and previous days)
-    daily_ohlcv = binance.fetch_ohlcv(symbol, '1d', limit=5)
-    df_daily = pd.DataFrame(daily_ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-    df_daily['timestamp'] = pd.to_datetime(df_daily['timestamp'], unit='ms')
-    df_daily.set_index('timestamp', inplace=True)
-    
-    # Get the amplitude of the previous day
-    prev_day_high = df_daily['high'].iloc[-2]
-    prev_day_low = df_daily['low'].iloc[-2]
-    
-    # Calculate amplitude ratio (high/low)
-    amplitude_ratio = prev_day_high / prev_day_low
-    return amplitude_ratio
-
-# Function to send a message to 3commas using a webhook
-def send_3commas_message(symbol, action, close_price):
-    if last_alert_messages.get(symbol) != action:
-        timestamp = datetime.now(timezone.utc).isoformat()
-        payload = {
-            "secret": config3.SECRET,
-            "max_lag": "300",
-            "timestamp": timestamp,
-            "trigger_price": str(close_price),
-            "tv_exchange": "BINANCE",
-            "tv_instrument": symbol.replace('/', '') + '.P',
-            "action": action,
-            "bot_uuid": "2cb946f7-4b8e-4a76-93d8-76fd0d6900d0"
-        }
-
-        try:
-            url = config3.THREE_COMMAS_WEBHOOK_URL
-            response = requests.post(url, json=payload)
-
-            if response.status_code == 200:
-                print(f"Successfully sent alert for {symbol} with action {action}")
-                last_alert_messages[symbol] = action
-            else:
-                print(f"Failed to send alert for {symbol}: {response.content}")
-
-        except requests.RequestException as e:
-            print(f"Error sending request for {symbol}: {e}")
-
-# Main function (now defined as async)
-async def main():
-    while True:
-        for symbol in config3.SELECTED_SYMBOLS:
-            try:
-                # Fetch historical data for SMA calculation (15-minute candles)
-                historical_data = get_historical_data(symbol, interval)
-                
-                # Get daily high and low for crossover condition
-                daily_high, daily_low = get_daily_high_low(symbol)
-                
-                # Check SMA crossover vs daily low/high
-                enter_long, enter_short, exit_long, exit_short = check_sma_crossover_vs_daily_low_high(
-                    historical_data, daily_high, daily_low)
-
-                close_price = historical_data['close'].iloc[-1]
-
-                # Get amplitude ratio for the previous day
-                amplitude_ratio = get_previous_day_amplitude(symbol)
-
-                # Check if the amplitude ratio condition is met (minimum 1.2 for 20% change)
-                if amplitude_ratio >= 1.1:
-                    # Determine the action based on SMA crossover compared to daily low/high
-                    if enter_long:
-                        send_3commas_message(symbol, "enter_long", close_price)
-                    elif enter_short:
-                        send_3commas_message(symbol, "enter_short", close_price)
-                    elif exit_long:
-                        send_3commas_message(symbol, "exit_long", close_price)
-                    elif exit_short:
-                        send_3commas_message(symbol, "exit_short", close_price)
-                else:
-                    print(f"Amplitude condition not met for {symbol}, skipping...")
-
-            except Exception as e:
-                print(f"Error processing {symbol}: {e}")
-
-        # Sleep for a while before checking again
-        await asyncio.sleep(60)  # Sleep for 15 minutes (in seconds)
-
-# Use nest_asyncio to allow running asyncio in Jupyter notebooks
-nest_asyncio.apply()
-
-# Create and run the event loop
-asyncio.run(main())
+# config.py
+API_KEY = 'Hqod6Y5MDAkMmAJbRKOqUUDsYb9HG5aAkE3BMPZxHrm8JdZTgfIJr2RKSkRiOlDM'
+API_SECRET = 'wVI5YTy9Y3dhiU1KoOSc0ysMVsAvaklSHDm40ZqkaHzKGgjlq9zlmi5CSF3n2wGw'
+SECRET = 'eyJhbGciOiJIUzI1NiJ9.eyJzaWduYWxzX3NvdXJjZV9pZCI6MTAyNTR9.UpdSFm3FpcmR7hcVaBUOzPp5Q6-1gBRlQA21sH0ieHo'
+THREE_COMMAS_WEBHOOK_URL = 'https://api.3commas.io/signal_bots/webhooks'
+SELECTED_SYMBOLS = [
+    'AAVE/USDT', 'ACE/USDT', 'ACH/USDT', 'ADA/USDT', 'AEVO/USDT',
+    'AGLD/USDT', 'ALGO/USDT', 'ALICE/USDT', 'ALPHA/USDT',
+    'ALT/USDT', 'AMB/USDT', 'APT/USDT', 'ARB/USDT', 'ARK/USDT',
+    'ARPA/USDT', 'AR/USDT', 'ASTR/USDT', 'ATA/USDT', 'ATOM/USDT',
+    'AUCTION/USDT', 'AVAX/USDT', 'AXL/USDT', 'AXS/USDT', 'BADGER/USDT',
+    'BAKE/USDT', 'BAL/USDT', 'BAND/USDT', 'BAT/USDT', 'BB/USDT',
+    'BCH/USDT', 'BEAMX/USDT', 'BEL/USDT', 'BICO/USDT',
+    'BLUR/USDT', 'BLZ/USDT', 'BNB/USDT', 'BNT/USDT', 'BNX/USDT',
+    'BOME/USDT', 'BOND/USDT', 'BSV/USDT', 'BTC/USDT',
+    'CAKE/USDT', 'CELO/USDT', 'CELR/USDT', 'CFX/USDT', 'CHR/USDT',
+    'CKB/USDT', 'COMBO/USDT', 'COTI/USDT', 'CRV/USDT',
+    'CTSI/USDT', 'CYBER/USDT', 'DAR/USDT', 'DASH/USDT',
+    'DENT/USDT', 'DOGE/USDT', 'DOT/USDT', 'DUSK/USDT',
+    'DYDX/USDT', 'DYM/USDT', 'EDU/USDT', 'EGLD/USDT', 'ENA/USDT',
+    'ENJ/USDT', 'ENS/USDT', 'EOS/USDT', 'ETC/USDT', 'ETHFI/USDT',
+    'ETH/USDT', 'FET/USDT', 'FIL/USDT', 'FLM/USDT',
+    'FLOW/USDT', 'FRONT/USDT', 'FTM/USDT', 'FXS/USDT', 'GAS/USDT',
+    'GLM/USDT', 'GMX/USDT', 'GRT/USDT', 'GTC/USDT', 'HBAR/USDT',
+    'HFT/USDT', 'HIFI/USDT', 'HIGH/USDT', 'HOOK/USDT', 'ICP/USDT',
+    'ID/USDT', 'INJ/USDT',
+    'JASMY/USDT', 'JOE/USDT', 'JTO/USDT', 'JUP/USDT', 
+    'KEY/USDT', 'KLAY/USDT', 'KDA/USDT', 'LDO/USDT', 'LEVER/USDT',
+    'LINA/USDT', 'LINK/USDT', 'LIT/USDT', 'LOKA/USDT', 'LSK/USDT', 'LTC/USDT', 'MAGIC/USDT', 'MANTA/USDT',
+    'MASK/USDT', 'MATIC/USDT', 'MEME/USDT', 'METIS/USDT',
+    'MINA/USDT', 'NEAR/USDT', 'NKN/USDT', 'OGN/USDT', 'OMG/USDT', 'OMNI/USDT', 'ONE/USDT', 'ONG/USDT', 'OP/USDT',
+    'PENDLE/USDT', 'PEOPLE/USDT', 'PHB/USDT', 'PORTAL/USDT',
+    'POWR/USDT', 'PYTH/USDT', 'REN/USDT', 'REZ/USDT',
+    'ROSE/USDT', 'RSR/USDT', 'RUNE/USDT', 'RVN/USDT', 'SAGA/USDT',
+    'SAND/USDT', 'SEI/USDT', 'SNX/USDT', 'SOL/USDT',
+    'SPELL/USDT', 'STEEM/USDT', 'STG/USDT', 'STMX/USDT', 'STORJ/USDT',
+    'STRK/USDT', 'STX/USDT', 'SUI/USDT', 'SUPER/USDT', 'SUSHI/USDT',
+    'SXP/USDT', 'THETA/USDT', 'TLM/USDT',
+    'TNSR/USDT', 'TRB/USDT',
+    'TRX/USDT', 'TWT/USDT', 'UMA/USDT', 'UNFI/USDT', 'UNI/USDT', 'VANRY/USDT', 'VET/USDT', 'WAXP/USDT',
+    'WLD/USDT', 'XEM/USDT', 'XLM/USDT',
+    'XMR/USDT', 'XRP/USDT', 'XTZ/USDT',
+    'XVS/USDT', 'ZEC/USDT', 'ZEN/USDT',
+    'ZIL/USDT', 'ZK/USDT', 'ZRO/USDT', 'ZRX/USDT', 'FIO/USDT', 'FIDA/USDT', 'NEIRO/USDT', 'QUICK/USDT', 'REI/USDT', 'FLM/USDT', 'FLUX/USDT', 'GHST/USDT', 'HMSTR/USDT', 'AERGO/USDT', 'BSW/USDT', 'CATI/USDT', 'POL/USDT']  # Add your desired symbols
