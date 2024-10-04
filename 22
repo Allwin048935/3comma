@@ -3,15 +3,15 @@ import pandas as pd
 import asyncio
 import nest_asyncio
 import requests
-import config2
+import config1
 from datetime import datetime, timezone
 
-interval = '1m'  # 15-minute candlesticks
+interval = '3m'  # 3-minute candlesticks
 
-# Initialize binance client
+# Initialize Binance client
 binance = ccxt.binance({
-    'apiKey': config2.API_KEY,
-    'secret': config2.API_SECRET,
+    'apiKey': config1.API_KEY,
+    'secret': config1.API_SECRET,
 })
 
 # Dictionary to store the last alert messages for each symbol
@@ -25,45 +25,28 @@ def get_historical_data(symbol, interval, limit=100):
     df.set_index('timestamp', inplace=True)
     return df
 
-# Function to get daily high and low
-def get_daily_high_low(symbol):
-    daily_ohlcv = binance.fetch_ohlcv(symbol, '1d', limit=3)  # Fetch 2 daily candles
-    df_daily = pd.DataFrame(daily_ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-    df_daily['timestamp'] = pd.to_datetime(df_daily['timestamp'], unit='ms')
-    df_daily.set_index('timestamp', inplace=True)
+# Function to calculate EMA
+def calculate_ema(df, period):
+    return df['close'].ewm(span=period, adjust=False).mean()
 
-    # Get the high and low of the previous day
-    daily_high = df_daily['high'].iloc[-1]
-    daily_low = df_daily['low'].iloc[-1]
+# Function to check EMA crossover against highest and lowest of last 5 candles
+def check_ema_crossover_vs_high_low(df, short_period=9):
+    # Calculate short-term EMA
+    df['ema_short'] = calculate_ema(df, short_period)
     
-    return daily_high, daily_low
-
-# Function to calculate SMA
-def calculate_sma(df, period):
-    return df['close'].rolling(window=period).mean()
-
-# Function to check SMA crossover vs. daily low and high for entry/exit
-def check_sma_crossover_vs_daily_low_high(df, daily_high, daily_low, short_period=2):
-    df['sma_short'] = calculate_sma(df, short_period)
+    # Find highest and lowest of the last 5 candles
+    df['highest_5'] = df['high'].rolling(window=5).max()
+    df['lowest_5'] = df['low'].rolling(window=5).min()
     
-    # 1% above the daily low for long entry
-    adjusted_low = daily_low * 1.01
-    # 1% below the daily high for short entry
-    adjusted_high = daily_high * 0.99
+    # Check crossover conditions
+    cross_over = df['ema_short'].iloc[-2] <= df['highest_5'].iloc[-2]
+    cross_under = df['ema_short'].iloc[-2] >= df['lowest_5'].iloc[-2]
     
-    # Conditions for entering long/short
-    enter_long = df['sma_short'].iloc[-2] > adjusted_low
-    enter_short = df['sma_short'].iloc[-2] < adjusted_high
-    
-    # Conditions for exiting long/short
-    exit_long = df['sma_short'].iloc[-2] < adjusted_low
-    exit_short = df['sma_short'].iloc[-2] > adjusted_high
-    
-    return enter_long, enter_short, exit_long, exit_short
+    return cross_over, cross_under
 
 # Function to get previous day's amplitude ratio
 def get_previous_day_amplitude(symbol):
-    # Fetch 1-day candlesticks, limit to 2 (current and previous days)
+    # Fetch 1-day candlesticks, limit to 5 (current and previous 4 days)
     daily_ohlcv = binance.fetch_ohlcv(symbol, '1d', limit=5)
     df_daily = pd.DataFrame(daily_ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
     df_daily['timestamp'] = pd.to_datetime(df_daily['timestamp'], unit='ms')
@@ -82,7 +65,7 @@ def send_3commas_message(symbol, action, close_price):
     if last_alert_messages.get(symbol) != action:
         timestamp = datetime.now(timezone.utc).isoformat()
         payload = {
-            "secret": config2.SECRET,
+            "secret": config1.SECRET,
             "max_lag": "300",
             "timestamp": timestamp,
             "trigger_price": str(close_price),
@@ -93,7 +76,7 @@ def send_3commas_message(symbol, action, close_price):
         }
 
         try:
-            url = config2.THREE_COMMAS_WEBHOOK_URL
+            url = config1.THREE_COMMAS_WEBHOOK_URL
             response = requests.post(url, json=payload)
 
             if response.status_code == 200:
@@ -108,34 +91,26 @@ def send_3commas_message(symbol, action, close_price):
 # Main function (now defined as async)
 async def main():
     while True:
-        for symbol in config2.SELECTED_SYMBOLS:
+        for symbol in config1.SELECTED_SYMBOLS:
             try:
-                # Fetch historical data for SMA calculation (15-minute candles)
+                # Fetch historical data for each symbol
                 historical_data = get_historical_data(symbol, interval)
                 
-                # Get daily high and low for crossover condition
-                daily_high, daily_low = get_daily_high_low(symbol)
-                
-                # Check SMA crossover vs daily low/high
-                enter_long, enter_short, exit_long, exit_short = check_sma_crossover_vs_daily_low_high(
-                    historical_data, daily_high, daily_low)
+                # Check for EMA crossover vs. highest/lowest of last 5 candles
+                cross_over, cross_under = check_ema_crossover_vs_high_low(historical_data)
 
                 close_price = historical_data['close'].iloc[-1]
 
                 # Get amplitude ratio for the previous day
                 amplitude_ratio = get_previous_day_amplitude(symbol)
 
-                # Check if the amplitude ratio condition is met (minimum 1.2 for 20% change)
-                if amplitude_ratio >= 1.1:
-                    # Determine the action based on SMA crossover compared to daily low/high
-                    if enter_long:
+                # Check if the amplitude ratio condition is met (minimum 1.1 for 10% change)
+                if amplitude_ratio >= 1.10:
+                    # Determine the action based on EMA crossover compared to highest/lowest of last 5 candles
+                    if cross_over:
                         send_3commas_message(symbol, "enter_long", close_price)
-                    elif enter_short:
+                    elif cross_under:
                         send_3commas_message(symbol, "enter_short", close_price)
-                    elif exit_long:
-                        send_3commas_message(symbol, "exit_long", close_price)
-                    elif exit_short:
-                        send_3commas_message(symbol, "exit_short", close_price)
                 else:
                     print(f"Amplitude condition not met for {symbol}, skipping...")
 
@@ -143,7 +118,7 @@ async def main():
                 print(f"Error processing {symbol}: {e}")
 
         # Sleep for a while before checking again
-        await asyncio.sleep(60)  # Sleep for 15 minutes (in seconds)
+        await asyncio.sleep(180)  # Sleep for 3 minutes (in seconds)
 
 # Use nest_asyncio to allow running asyncio in Jupyter notebooks
 nest_asyncio.apply()
