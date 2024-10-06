@@ -43,8 +43,8 @@ def check_ema_crossover_vs_high_low(df, short_period=9):
     print(f"Highest of last 5 candles: {df['highest_5'].iloc[-2]}")
     
     # Check crossover conditions
-    cross_over = df['ema_short'].iloc[-2] <= df['highest_5'].iloc[-2]
-    cross_under = df['ema_short'].iloc[-2] >= df['lowest_5'].iloc[-2]
+    cross_over = df['ema_short'].iloc[-2] < df['highest_5'].iloc[-2]
+    cross_under = df['ema_short'].iloc[-2] > df['lowest_5'].iloc[-2]
     
     return cross_over, cross_under
 
