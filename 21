@@ -105,10 +105,10 @@ async def main():
                 amplitude_ratio = get_previous_day_amplitude(symbol)
 
                 # Print the amplitude ratio value
-                print(f"Amplitude ratio for {symbol}: {amplitude_ratio}")
+                #print(f"Amplitude ratio for {symbol}: {amplitude_ratio}")
 
                 # Check if the amplitude ratio condition is met (minimum 1.1 for 10% change)
-                if amplitude_ratio >= 1.05:
+                if amplitude_ratio >= 1.11:
                     # Determine the action based on EMA crossover compared to highest/lowest of last 2 to 6 candles
                     if cross_over:
                         send_3commas_message(symbol, "enter_long", close_price)
