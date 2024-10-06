@@ -3,15 +3,15 @@ import pandas as pd
 import asyncio
 import nest_asyncio
 import requests
-import config1
+import config1  # Updated to config1
 from datetime import datetime, timezone
 
 interval = '3m'  # 3-minute candlesticks
 
 # Initialize Binance client
 binance = ccxt.binance({
-    'apiKey': config1.API_KEY,
-    'secret': config1.API_SECRET,
+    'apiKey': config1.API_KEY,  # Updated to config1
+    'secret': config1.API_SECRET,  # Updated to config1
 })
 
 # Dictionary to store the last alert messages for each symbol
@@ -29,22 +29,18 @@ def get_historical_data(symbol, interval, limit=100):
 def calculate_ema(df, period):
     return df['close'].ewm(span=period, adjust=False).mean()
 
-# Function to check EMA crossover against highest and lowest of last 5 candles
+# Function to check EMA crossover against highest and lowest of last 2 to 6 candles (excluding current candle)
 def check_ema_crossover_vs_high_low(df, short_period=2):
     # Calculate short-term EMA
     df['ema_short'] = calculate_ema(df, short_period)
     
-    # Find highest and lowest of the last 5 candles
-    df['highest_5'] = df['high'].rolling(window=5).max()
-    df['lowest_5'] = df['low'].rolling(window=5).min()
+    # Find highest and lowest from the 2nd to 6th most recent candles (excluding current candle)
+    df['highest_5'] = df['high'].shift(1).rolling(window=5).max()  # Shift by 1 to exclude current candle
+    df['lowest_5'] = df['low'].shift(1).rolling(window=5).min()    # Shift by 1 to exclude current candle
     
-    # Print the second-to-last values of 'highest_5' and 'lowest_5'
-    #print(f"Lowest of last 5 candles: {df['lowest_5'].iloc[-2]}")
-    #print(f"Highest of last 5 candles: {df['highest_5'].iloc[-2]}")
-    
-    # Check crossover conditions
-    cross_over = df['ema_short'].iloc[-2] > df['highest_5'].iloc[-2]
-    cross_under = df['ema_short'].iloc[-2] < df['lowest_5'].iloc[-2]
+    # Check crossover conditions (compare EMA with highest/lowest of candles 2-6)
+    cross_over = df['ema_short'].iloc[-2] > df['highest_5'].iloc[-2]  # EMA crosses above highest of 2-6
+    cross_under = df['ema_short'].iloc[-2] < df['lowest_5'].iloc[-2]  # EMA crosses below lowest of 2-6
     
     return cross_over, cross_under
 
@@ -69,7 +65,7 @@ def send_3commas_message(symbol, action, close_price):
     if last_alert_messages.get(symbol) != action:
         timestamp = datetime.now(timezone.utc).isoformat()
         payload = {
-            "secret": config1.SECRET,
+            "secret": config1.SECRET,  # Updated to config1
             "max_lag": "300",
             "timestamp": timestamp,
             "trigger_price": str(close_price),
@@ -80,7 +76,7 @@ def send_3commas_message(symbol, action, close_price):
         }
 
         try:
-            url = config1.THREE_COMMAS_WEBHOOK_URL
+            url = config1.THREE_COMMAS_WEBHOOK_URL  # Updated to config1
             response = requests.post(url, json=payload)
 
             if response.status_code == 200:
@@ -95,12 +91,12 @@ def send_3commas_message(symbol, action, close_price):
 # Main function (now defined as async)
 async def main():
     while True:
-        for symbol in config1.SELECTED_SYMBOLS:
+        for symbol in config1.SELECTED_SYMBOLS:  # Updated to config1
             try:
                 # Fetch historical data for each symbol
                 historical_data = get_historical_data(symbol, interval)
                 
-                # Check for EMA crossover vs. highest/lowest of last 5 candles
+                # Check for EMA crossover vs. highest/lowest of last 2 to 6 candles
                 cross_over, cross_under = check_ema_crossover_vs_high_low(historical_data)
 
                 close_price = historical_data['close'].iloc[-1]
@@ -108,9 +104,12 @@ async def main():
                 # Get amplitude ratio for the previous day
                 amplitude_ratio = get_previous_day_amplitude(symbol)
 
+                # Print the amplitude ratio value
+                #print(f"Amplitude ratio for {symbol}: {amplitude_ratio}")
+
                 # Check if the amplitude ratio condition is met (minimum 1.1 for 10% change)
-                if amplitude_ratio >= 1.15:
-                    # Determine the action based on EMA crossover compared to highest/lowest of last 5 candles
+                if amplitude_ratio >= 1.11:
+                    # Determine the action based on EMA crossover compared to highest/lowest of last 2 to 6 candles
                     if cross_over:
                         send_3commas_message(symbol, "enter_long", close_price)
                     elif cross_under:
