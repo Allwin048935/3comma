@@ -108,7 +108,7 @@ async def main():
                 print(f"Amplitude ratio for {symbol}: {amplitude_ratio}")
 
                 # Check if the amplitude ratio condition is met (minimum 1.1 for 10% change)
-                if amplitude_ratio >= 1.10:
+                if amplitude_ratio >= 1.15:
                     # Determine the action based on EMA crossover compared to highest/lowest of last 5 candles
                     if cross_over:
                         send_3commas_message(symbol, "enter_long", close_price)
