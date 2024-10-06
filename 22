@@ -35,8 +35,8 @@ def check_ema_crossover_vs_high_low(df, short_period=2):
     df['ema_short'] = calculate_ema(df, short_period)
     
     # Find highest and lowest from the 2nd to 6th most recent candles (excluding current candle)
-    df['highest_5'] = df['high'].shift(1).rolling(window=5).max()  # Shift by 1 to exclude current candle
-    df['lowest_5'] = df['low'].shift(1).rolling(window=5).min()    # Shift by 1 to exclude current candle
+    df['highest_5'] = df['close'].shift(1).rolling(window=5).max()  # Shift by 1 to exclude current candle
+    df['lowest_5'] = df['close'].shift(1).rolling(window=5).min()    # Shift by 1 to exclude current candle
     
     # Check crossover conditions (compare EMA with highest/lowest of candles 2-6)
     cross_over = df['ema_short'].iloc[-2] > df['highest_5'].iloc[-2]  # EMA crosses above highest of 2-6
