@@ -3,7 +3,7 @@ import pandas as pd
 import asyncio
 import nest_asyncio
 import requests
-import config2  # Change to config2
+import config2  # Updated to config2
 from datetime import datetime, timezone
 
 interval = '3m'  # 3-minute candlesticks
@@ -103,6 +103,9 @@ async def main():
 
                 # Get amplitude ratio for the previous day
                 amplitude_ratio = get_previous_day_amplitude(symbol)
+
+                # Print the amplitude ratio value
+                print(f"Amplitude ratio for {symbol}: {amplitude_ratio}")
 
                 # Check if the amplitude ratio condition is met (minimum 1.1 for 10% change)
                 if amplitude_ratio >= 1.10:
