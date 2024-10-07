@@ -6,7 +6,7 @@ import requests
 import config  # Updated to config
 from datetime import datetime, timezone
 
-interval = '15m'  # Time interval for candlesticks
+interval = '5m'  # Time interval for candlesticks
 
 # Initialize Binance client
 binance = ccxt.binance({
@@ -30,7 +30,7 @@ def calculate_ema(df, period):
     return df['close'].ewm(span=period, adjust=False).mean()
 
 # Function to check EMA crossover for 5-period and 200-period EMAs
-def check_ema_crossover(df, short_period=5, long_period=200):
+def check_ema_crossover(df, short_period=20, long_period=200):
     # Calculate short-term and long-term EMAs
     df['ema_short'] = calculate_ema(df, short_period)
     df['ema_long'] = calculate_ema(df, long_period)
