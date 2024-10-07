@@ -3,15 +3,15 @@ import pandas as pd
 import asyncio
 import nest_asyncio
 import requests
-import config2  # Updated to config2
+import config  # Updated to config
 from datetime import datetime, timezone
 
 interval = '1h'  # 3-minute candlesticks
 
 # Initialize Binance client
 binance = ccxt.binance({
-    'apiKey': config2.API_KEY,  # Updated to config2
-    'secret': config2.API_SECRET,  # Updated to config2
+    'apiKey': config.API_KEY,  # Updated to config
+    'secret': config.API_SECRET,  # Updated to config
 })
 
 # Dictionary to store the last alert messages for each symbol
@@ -65,7 +65,7 @@ def send_3commas_message(symbol, action, close_price):
     if last_alert_messages.get(symbol) != action:
         timestamp = datetime.now(timezone.utc).isoformat()
         payload = {
-            "secret": config2.SECRET,  # Updated to config2
+            "secret": config.SECRET,  # Updated to config
             "max_lag": "300",
             "timestamp": timestamp,
             "trigger_price": str(close_price),
@@ -76,7 +76,7 @@ def send_3commas_message(symbol, action, close_price):
         }
 
         try:
-            url = config2.THREE_COMMAS_WEBHOOK_URL  # Updated to config2
+            url = config.THREE_COMMAS_WEBHOOK_URL  # Updated to config
             response = requests.post(url, json=payload)
 
             if response.status_code == 200:
@@ -91,7 +91,7 @@ def send_3commas_message(symbol, action, close_price):
 # Main function (now defined as async)
 async def main():
     while True:
-        for symbol in config2.SELECTED_SYMBOLS:  # Updated to config2
+        for symbol in config.SELECTED_SYMBOLS:  # Updated to config
             try:
                 # Fetch historical data for each symbol
                 historical_data = get_historical_data(symbol, interval)
