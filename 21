@@ -6,7 +6,7 @@ import requests
 import config2  # Updated to config2
 from datetime import datetime, timezone
 
-interval = '3m'  # 3-minute candlesticks
+interval = '1h'  # 3-minute candlesticks
 
 # Initialize Binance client
 binance = ccxt.binance({
@@ -35,8 +35,8 @@ def check_ema_crossover_vs_high_low(df, short_period=2):
     df['ema_short'] = calculate_ema(df, short_period)
     
     # Find highest and lowest from the 2nd to 6th most recent candles (excluding current candle)
-    df['highest_5'] = df['close'].shift(1).rolling(window=5).max()  # Shift by 1 to exclude current candle
-    df['lowest_5'] = df['close'].shift(1).rolling(window=5).min()    # Shift by 1 to exclude current candle
+    df['highest_5'] = df['close'].shift(1).rolling(window=4).max()  # Shift by 1 to exclude current candle
+    df['lowest_5'] = df['close'].shift(1).rolling(window=4).min()    # Shift by 1 to exclude current candle
     
     # Check crossover conditions (compare EMA with highest/lowest of candles 2-6)
     cross_over = df['ema_short'].iloc[-2] > df['highest_5'].iloc[-2]  # EMA crosses above highest of 2-6
@@ -108,7 +108,7 @@ async def main():
                 #print(f"Amplitude ratio for {symbol}: {amplitude_ratio}")
 
                 # Check if the amplitude ratio condition is met (minimum 1.1 for 10% change)
-                if amplitude_ratio >= 1.11:
+                if amplitude_ratio >= 1.10:
                     # Determine the action based on EMA crossover compared to highest/lowest of last 2 to 6 candles
                     if cross_over:
                         send_3commas_message(symbol, "enter_long", close_price)
@@ -121,7 +121,7 @@ async def main():
                 print(f"Error processing {symbol}: {e}")
 
         # Sleep for a while before checking again
-        await asyncio.sleep(180)  # Sleep for 3 minutes (in seconds)
+        await asyncio.sleep(300)  # Sleep for 3 minutes (in seconds)
 
 # Use nest_asyncio to allow running asyncio in Jupyter notebooks
 nest_asyncio.apply()
