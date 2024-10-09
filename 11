@@ -3,71 +3,70 @@ import pandas as pd
 import asyncio
 import nest_asyncio
 import requests
-import config1
+import config2  # Updated to config2
 from datetime import datetime, timezone
 
-interval = '3m'  # 15-minute candlesticks
+interval = '5m'  # Time interval for candlesticks
 
-# Initialize binance client
+# Initialize Binance client
 binance = ccxt.binance({
-    'apiKey': config1.API_KEY,
-    'secret': config1.API_SECRET,
+    'apiKey': config2.API_KEY,  # Updated to config2
+    'secret': config2.API_SECRET,  # Updated to config2
 })
 
 # Dictionary to store the last alert messages for each symbol
 last_alert_messages = {}
 
 # Function to get historical candlestick data
-def get_historical_data(symbol, interval, limit=100):
+def get_historical_data(symbol, interval, limit=500):
     ohlcv = binance.fetch_ohlcv(symbol, interval, limit=limit)
     df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
     df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
     df.set_index('timestamp', inplace=True)
     return df
 
-# Function to get day open price
-def get_day_open_price(symbol):
-    day_ohlcv = binance.fetch_ohlcv(symbol, '1d', limit=5)
-    df_day = pd.DataFrame(day_ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-    df_day['timestamp'] = pd.to_datetime(df_day['timestamp'], unit='ms')
-    df_day.set_index('timestamp', inplace=True)
-    # Get the open price of the latest day candle
-    day_open_price = df_day['close'].iloc[-2]
-    return day_open_price
+# Function to calculate EMA
+def calculate_ema(df, period):
+    return df['close'].ewm(span=period, adjust=False).mean()
 
-# Function to calculate SMA
-def calculate_sma(df, period):
-    return df['close'].rolling(window=period).mean()
-
-# Function to check SMA crossover against day open price
-def check_sma_crossover_vs_day_open(df, day_open_price, short_period=9):
-    df['sma_short'] = calculate_sma(df, short_period)
-    cross_over = df['sma_short'].iloc[-2] > day_open_price
-    cross_under = df['sma_short'].iloc[-2] < day_open_price
+# Function to check EMA crossover for 5-period and 200-period EMAs
+def check_ema_crossover(df, short_period=20, long_period=200):
+    # Calculate short-term and long-term EMAs
+    df['ema_short'] = calculate_ema(df, short_period)
+    df['ema_long'] = calculate_ema(df, long_period)
+    
+    # Check crossover conditions
+    cross_over = df['ema_short'].iloc[-2] > df['ema_long'].iloc[-2] and df['ema_short'].iloc[-3] <= df['ema_long'].iloc[-3]  # 5 EMA crosses above 200 EMA
+    cross_under = df['ema_short'].iloc[-2] < df['ema_long'].iloc[-2] and df['ema_short'].iloc[-3] >= df['ema_long'].iloc[-3]  # 5 EMA crosses below 200 EMA
+    
     return cross_over, cross_under
 
-# Function to get previous day's amplitude ratio
-def get_previous_day_amplitude(symbol):
-    # Fetch 1-day candlesticks, limit to 2 (current and previous days)
+# Function to get amplitude ratio for today and yesterday
+def get_amplitude_ratio(symbol):
+    # Fetch 1-day candlesticks, limit to 5 (current and previous 4 days)
     daily_ohlcv = binance.fetch_ohlcv(symbol, '1d', limit=5)
     df_daily = pd.DataFrame(daily_ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
     df_daily['timestamp'] = pd.to_datetime(df_daily['timestamp'], unit='ms')
     df_daily.set_index('timestamp', inplace=True)
-    
-    # Get the amplitude of the previous day
-    prev_day_high = df_daily['high'].iloc[-2]
-    prev_day_low = df_daily['low'].iloc[-2]
-    
-    # Calculate amplitude ratio (high/low)
-    amplitude_ratio = prev_day_high / prev_day_low
-    return amplitude_ratio
+
+    # Get today's and yesterday's amplitude
+    today_high = df_daily['high'].iloc[-1]
+    today_low = df_daily['low'].iloc[-1]
+    yesterday_high = df_daily['high'].iloc[-2]
+    yesterday_low = df_daily['low'].iloc[-2]
+
+    # Calculate amplitude ratios (high/low) for today and yesterday
+    today_amplitude_ratio = today_high / today_low
+    yesterday_amplitude_ratio = yesterday_high / yesterday_low
+
+    return today_amplitude_ratio, yesterday_amplitude_ratio
 
 # Function to send a message to 3commas using a webhook
 def send_3commas_message(symbol, action, close_price):
     if last_alert_messages.get(symbol) != action:
         timestamp = datetime.now(timezone.utc).isoformat()
         payload = {
-            "secret": config1.SECRET,
+            "secret": config2.SECRET,  # Updated to config2
             "max_lag": "300",
             "timestamp": timestamp,
             "trigger_price": str(close_price),
@@ -78,7 +77,7 @@ def send_3commas_message(symbol, action, close_price):
         }
 
         try:
-            url = config1.THREE_COMMAS_WEBHOOK_URL
+            url = config2.THREE_COMMAS_WEBHOOK_URL  # Updated to config2
             response = requests.post(url, json=payload)
 
             if response.status_code == 200:
@@ -93,21 +92,26 @@ def send_3commas_message(symbol, action, close_price):
 # Main function (now defined as async)
 async def main():
     while True:
-        for symbol in config1.SELECTED_SYMBOLS:
+        for symbol in config2.SELECTED_SYMBOLS:  # Updated to config2
             try:
-                # Fetch historical data and day open price only once per symbol
+                # Fetch historical data for each symbol (we fetch 300 candles to ensure we have enough data for the 200-period EMA)
                 historical_data = get_historical_data(symbol, interval)
-                day_open_price = get_day_open_price(symbol)  # Get the day open price
-                cross_over, cross_under = check_sma_crossover_vs_day_open(historical_data, day_open_price)
+                
+                # Check for 5-period EMA crossover with 200-period EMA
+                cross_over, cross_under = check_ema_crossover(historical_data)
 
                 close_price = historical_data['close'].iloc[-1]
 
-                # Get amplitude ratio for the previous day
-                amplitude_ratio = get_previous_day_amplitude(symbol)
+                # Get amplitude ratios for today and yesterday
+                today_amplitude, yesterday_amplitude = get_amplitude_ratio(symbol)
 
-                # Check if the amplitude ratio condition is met (minimum 1.1 for 10% change)
-                if amplitude_ratio >= 1.10:
-                    # Determine the action based on SMA crossover compared to day open price
+                # Print the amplitude ratio values
+                # print(f"Today's amplitude ratio for {symbol}: {today_amplitude}")
+                # print(f"Yesterday's amplitude ratio for {symbol}: {yesterday_amplitude}")
+
+                # Check if today's or yesterday's amplitude ratio condition is met (minimum 1.1 for 10% change)
+                if today_amplitude >= 1.10 or yesterday_amplitude >= 1.10:
+                    # Determine the action based on EMA crossover
                     if cross_over:
                         send_3commas_message(symbol, "enter_long", close_price)
                     elif cross_under:
@@ -119,7 +123,7 @@ async def main():
                 print(f"Error processing {symbol}: {e}")
 
         # Sleep for a while before checking again
-        await asyncio.sleep(180)  # Sleep for 15 minutes (in seconds)
+        await asyncio.sleep(300)  # Sleep for 3 minutes (in seconds)
 
 # Use nest_asyncio to allow running asyncio in Jupyter notebooks
 nest_asyncio.apply()
