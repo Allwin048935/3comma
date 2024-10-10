@@ -34,7 +34,11 @@ def check_ema_crossover(df, short_period=20, long_period=200):
     # Calculate short-term and long-term EMAs
     df['ema_short'] = calculate_ema(df, short_period)
     df['ema_long'] = calculate_ema(df, long_period)
-    
+
+    #Print the most recent EMA values for both short and long periods
+    print(f"EMA Short (Period {short_period}): {df['ema_short'].iloc[-2]} | EMA Long (Period {long_period}): {df['ema_long'].iloc[-2]}")
+
+
     # Check crossover conditions
     cross_over = df['ema_short'].iloc[-2] > df['ema_long'].iloc[-2] and df['ema_short'].iloc[-3] <= df['ema_long'].iloc[-3]  # 5 EMA crosses above 200 EMA
     cross_under = df['ema_short'].iloc[-2] < df['ema_long'].iloc[-2] and df['ema_short'].iloc[-3] >= df['ema_long'].iloc[-3]  # 5 EMA crosses below 200 EMA
