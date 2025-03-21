@@ -1,0 +1,144 @@
+import requests
+import ccxt
+import pandas as pd
+import matplotlib.pyplot as plt
+import mplfinance as mpf
+from io import BytesIO
+import asyncio
+import nest_asyncio
+from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.ext import Application, CallbackQueryHandler, ContextTypes
+import config  # Ensure config.py has API_KEY and API_SECRET
+import ta  # Import technical analysis library
+
+# Apply nest_asyncio to prevent event loop errors in Jupyter Notebook
+nest_asyncio.apply()
+
+interval = '2h'  # 2-hour candlestick
+fib_interval = '1d'  # 1-day candlestick for Fibonacci levels
+
+# Fetch SELECTED_SYMBOLS dynamically from Binance
+url = "https://api.binance.com/api/v3/exchangeInfo"
+try:
+    response = requests.get(url)
+    response.raise_for_status()
+    data = response.json()
+
+    SELECTED_SYMBOLS = [
+        s['symbol'] for s in data['symbols']
+        if s['quoteAsset'] == 'USDT' and s['status'] == 'TRADING'
+    ]
+except requests.exceptions.RequestException as e:
+    print(f"Error fetching data from Binance: {e}")
+    SELECTED_SYMBOLS = []
+
+# Initialize Binance client
+binance = ccxt.binance({
+    'apiKey': config.API_KEY,
+    'secret': config.API_SECRET,
+})
+
+# Dictionary to store the last alert messages for each symbol
+last_alert_messages = {}
+
+# Function to get historical candlestick data
+def get_historical_data(symbol, interval, limit=50):
+    ohlcv = binance.fetch_ohlcv(symbol, interval, limit=limit)
+    df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+    df.set_index('timestamp', inplace=True)
+
+    # Rename columns to match mplfinance format
+    df.columns = ['Open', 'High', 'Low', 'Close', 'Volume']
+    return df
+
+# Function to calculate EMA using ta library
+def calculate_ema(df, period):
+    df[f'ema_{period}'] = ta.trend.EMAIndicator(df['Close'], window=period).ema_indicator()
+    return df
+
+# Function to calculate MACD using ta library
+def calculate_macd(df):
+    macd = ta.trend.MACD(df['Close'])
+    df['macd'] = macd.macd()
+    df['signal'] = macd.macd_signal()
+    df['histogram'] = macd.macd_diff()
+    return df
+
+# Function to check histogram cross (replacing EMA cross)
+def check_histogram_cross(df):
+    df = calculate_macd(df)  # Ensure MACD and histogram are calculated
+    df = calculate_ema(df, 3)  # Calculate short EMA
+    df = calculate_ema(df, 7)  # Calculate long EMA
+
+    cross_over = df['histogram'].iloc[-2] > df['histogram'].iloc[-3] and df['histogram'].iloc[-2] > 0
+    cross_under = df['histogram'].iloc[-2] < df['histogram'].iloc[-3] and df['histogram'].iloc[-2] < 0
+
+    return cross_over, cross_under
+
+# Function to calculate Fibonacci levels
+def calculate_fibonacci_levels(df):
+    if df.empty:
+        return {}
+
+    high_price = df['High'].max()
+    low_price = df['Low'].min()
+
+    diff = high_price - low_price
+    if diff == 0:
+        return {}
+
+    levels = {
+        '0.0%': high_price,
+        '23.6%': high_price - 0.236 * diff,
+        '38.2%': high_price - 0.382 * diff,
+        '50.0%': high_price - 0.5 * diff,
+        '61.8%': high_price - 0.618 * diff,
+        '100.0%': low_price
+    }
+    return levels
+
+# Function to send Telegram message with inline buttons
+async def send_telegram_message(bot: Bot, chat_id: str, symbol: str, message: str, image_buffer, close_price):
+    unique_key = f"{symbol}_{message}_{close_price}"
+    if last_alert_messages.get(symbol, "") != unique_key:
+        keyboard = [
+            [InlineKeyboardButton("Enter Long", callback_data=f"enter_long_{symbol}_{close_price}")],
+            [InlineKeyboardButton("Enter Short", callback_data=f"enter_short_{symbol}_{close_price}")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        await bot.send_message(chat_id=chat_id, text=message, reply_markup=reply_markup)
+        await bot.send_photo(chat_id=chat_id, photo=image_buffer)
+
+        last_alert_messages[symbol] = unique_key
+
+# Function to handle Telegram callback queries (button clicks)
+async def handle_telegram_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    data = query.data.split('_')
+
+    if len(data) < 3:
+        await query.answer("Invalid command format.")
+        return
+
+    action, symbol, close_price = data[0], data[1], float(data[2])
+
+    # Send payload to 3Commas
+    timestamp = pd.Timestamp.now().isoformat()
+    await send_3commas_payload(symbol, action, close_price, timestamp)
+
+    await query.answer(f"Order {action} executed for {symbol} at {close_price}")
+
+# Function to send payload to 3Commas
+async def send_3commas_payload(symbol, action, close_price, timestamp):
+    payloads = [
+        {
+            "symbol": symbol,
+            "action": action,
+            "close_price": close_price,
+            "timestamp": timestamp
+        }
+    ]
+    # Send to 3Commas webhook or API
+    print("Payload sent to 3Commas:", payloads)
